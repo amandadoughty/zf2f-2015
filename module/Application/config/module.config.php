@@ -52,6 +52,11 @@ return array(
             ),
         ),
     ),
+    'controller_plugins' => array(
+        'invokables' => array(
+            'someDate' => 'Application\Plugins\SomeDate',
+        ),
+    ),
     'service_manager' => array(
         'services' => [
             'application-test' => ['2' => __FILE__],
