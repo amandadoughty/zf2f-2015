@@ -16,13 +16,13 @@ class ViewController extends AbstractActionController
 {
     public function indexAction()
     {
-        $category = $this->params()->fromQuery('category');
+        $category = $this->params()->fromRoute('category');
         $viewModel = new ViewModel(['categories' => $category]);
         return $viewModel;
     }
     public function itemAction()
     {
-        $itemId = $this->params()->fromQuery('itemId');
+        $itemId = $this->params()->fromRoute('itemId');
         $viewModel = new ViewModel(['itemId' => $itemId]);
         return $viewModel;
     }

@@ -29,9 +29,17 @@ class Module
         $moduleRouteListener = new ModuleRouteListener();
         $moduleRouteListener->attach($eventManager);
         $eventManager->attach(MvcEvent::EVENT_DISPATCH, [$this,'onDispatch'], 100);
+        $eventManager->attach(MvcEvent::EVENT_DISPATCH_ERROR, [$this,'onError'], 1000);
         //$eventManager->attach('*', [$this,'onTest'], 100);
     }
 
+    public function onError(MvcEvent $e)
+    {
+        $response = $e->getResponse();
+        $response->setContent('Have a great day');
+        return $response;
+    }
+    
     public function onDispatch(MvcEvent $e)
     {
         $svcMgr = $e->getApplication()->getServiceManager();

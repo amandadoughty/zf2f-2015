@@ -11,25 +11,79 @@ return array(
     ),
     'router' => array(
         'routes' => array(
+            'home' => array(
+                'type'    => 'Zend\Mvc\Router\Http\Literal',
+                'options' => array(
+                    // Change this to something specific to your module
+                    'route'    => '/',
+                    'defaults' => array(
+                        'controller'    => 'market-index-controller',
+                        'action'        => 'index',
+                    ),
+                ),
+            ),
             'market' => array(
-                'type'    => 'Literal',
+                'type'    => 'Zend\Mvc\Router\Http\Literal',
                 'options' => array(
                     // Change this to something specific to your module
                     'route'    => '/market',
                     'defaults' => array(
-                        // Change this value to reflect the namespace in which
-                        // the controllers for your module are found
-                        //'__NAMESPACE__' => 'Market\Controller',
                         'controller'    => 'market-index-controller',
                         'action'        => 'index',
                     ),
                 ),
                 'may_terminate' => true,
                 'child_routes' => array(
-                    // This route is a sane default when developing a module;
-                    // as you solidify the routes for your module, however,
-                    // you may want to remove it and replace it with more
-                    // specific routes.
+                    'view' => array(
+                        'type'    => 'Zend\Mvc\Router\Http\Literal',
+                        'options' => array(
+                            // Change this to something specific to your module
+                            'route'    => '/view',
+                            'defaults' => array(
+                                'controller'    => 'market-view-controller',
+                                'action'        => 'index',
+                            ),
+                        ),
+                        'may_terminate' => true,
+                        'child_routes' => array(
+                            'index' => array(
+                                'type'    => 'Zend\Mvc\Router\Http\Segment',
+                                'options' => array(
+                                    'route'    => '/main[/:category]',
+                                    'defaults' => array(
+                                        'action'        => 'index',
+                                    ),
+                                    'constraints' => array(
+                                        'category' => '[a-zA-Z]*',
+                                    ),
+                                ),
+                            ),
+                            'item' => array(
+                                'type'    => 'Zend\Mvc\Router\Http\Segment',
+                                'options' => array(
+                                    'route'    => '/item[/:itemId]',
+                                    'defaults' => array(
+                                        'action'        => 'item',
+                                    ),
+                                    'constraints' => array(
+                                        'itemId' => '[0-9]*',
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    'post' => array(
+                        'type'    => 'Zend\Mvc\Router\Http\Literal',
+                        'options' => array(
+                            // Change this to something specific to your module
+                            'route'    => '/post',
+                            'defaults' => array(
+                                'controller'    => 'market-post-controller',
+                                'action'        => 'index',
+                            ),
+                        ),
+                    ),
+                    /*
                     'default' => array(
                         'type'    => 'Segment',
                         'options' => array(
@@ -42,6 +96,7 @@ return array(
                             ),
                         ),
                     ),
+                    */
                 ),
             ),
         ),

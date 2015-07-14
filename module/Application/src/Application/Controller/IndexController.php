@@ -11,6 +11,7 @@ namespace Application\Controller;
 
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\View\Model\ViewModel;
+use Zend\View\Model\JsonModel;
 
 class IndexController extends AbstractActionController
 {
@@ -18,12 +19,18 @@ class IndexController extends AbstractActionController
     {
         $test = $this->getEvent()->getRouteMatch();
         $date = $this->getServiceLocator()->get('application-date-time');
-        return new ViewModel(['test' => $test, 'date' => $date]);
+        $viewModel = new ViewModel(['test' => $test, 'date' => $date]);
+        $viewModel->setTemplate('application/index/index');
+        return $viewModel;
     }
     public function whateverAction()
     {
-        $response = $this->getResponse();
-        $response->setContent('Whatever');
-        return $response;
+        $viewModel = new ViewModel();
+        $viewModel->setVariable('whatever', 'TEST');
+        return $viewModel;
+    }
+    public function testAction()
+    {
+        return new JsonModel(['whatever' => 'TEST']);
     }
 }

@@ -10,10 +10,10 @@
 return array(
     'router' => array(
         'routes' => array(
-            'home' => array(
+            'app-home' => array(
                 'type' => 'Zend\Mvc\Router\Http\Literal',
                 'options' => array(
-                    'route'    => '/',
+                    'route'    => '/app-home',
                     'defaults' => array(
                         'controller' => 'Application\Controller\Index',
                         'action'     => 'index',
@@ -23,10 +23,19 @@ return array(
                 ),
                 'may_terminate' => TRUE,
                 'child_routes' => array(
+                    'test' => array(
+                        'type' => 'Zend\Mvc\Router\Http\Literal',
+                        'options' => array(
+                            'route'    => '/test',
+                            'defaults' => array(
+                                'action'     => 'test',
+                            ),
+                        ),
+                    ),
                     'other' => array(
                         'type' => 'Zend\Mvc\Router\Http\Literal',
                         'options' => array(
-                            'route'    => 'whatever',
+                            'route'    => '/whatever',
                             'defaults' => array(
                                 'controller' => 'Application\Controller\Index',
                                 'action'     => 'whatever',
@@ -148,14 +157,12 @@ return array(
         'doctype'                  => 'HTML5',
         'not_found_template'       => 'error/404',
         'exception_template'       => 'error/index',
-        'template_map' => array(
-            'layout/layout'           => __DIR__ . '/../view/layout/layout.phtml',
-            'application/index/index' => __DIR__ . '/../view/application/index/index.phtml',
-            'error/404'               => __DIR__ . '/../view/error/404.phtml',
-            'error/index'             => __DIR__ . '/../view/error/index.phtml',
-        ),
-        'template_path_stack' => array(
-            __DIR__ . '/../view',
+        'template_map'             => include __DIR__ . '/../template_map.php',
+        //'template_path_stack' => array(
+        //    __DIR__ . '/../view',
+        //),
+        'strategies' => array(
+            'ViewJsonStrategy',
         ),
     ),
     // Placeholder for console routes
