@@ -12,7 +12,7 @@ use Zend\EventManager\AbstractListenerAggregate;
  */
 class LogListener extends AbstractListenerAggregate implements ServiceLocatorAwareInterface
 {
-    
+    // this trait gives you the "getServiceLocator()" method + $serviceLocator property
     use ServiceLocatorAwareTrait;
     
     /**

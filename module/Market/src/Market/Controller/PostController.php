@@ -8,6 +8,7 @@ use Logger\Event\LoggerEvent;
 
 class PostController extends AbstractActionController
 {
+    use ListingsTableTrait;
     protected $categories;
     protected $postForm;
     

@@ -1,18 +1,17 @@
 <?php
 return [
     'controllers' => [
-        'invokables' => [
-            'market-index-controller' => 'Market\Controller\IndexController',
-            'market-view-controller'  => 'Market\Controller\ViewController',
-        ],
         'factories' => [
+            'market-index-controller' => 'Market\Factory\IndexControllerFactory',
+            'market-view-controller'  => 'Market\Factory\ViewControllerFactory',
             'market-post-controller'  => 'Market\Factory\PostControllerFactory',
         ],
     ],
     'service_manager' => [
         'factories' => [
-            'market-form-post'   => 'Market\Factory\PostFormFactory',
-            'market-filter-post' => 'Market\Factory\PostFilterFactory',
+            'market-form-post'      => 'Market\Factory\PostFormFactory',
+            'market-filter-post'    => 'Market\Factory\PostFilterFactory',
+            'market-listings-table' => 'Market\Factory\ListingsTableFactory',
         ],
         'services' => [
             'market-expire-days' => [ 

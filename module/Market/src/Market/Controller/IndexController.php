@@ -14,9 +14,12 @@ use Zend\View\Model\ViewModel;
 
 class IndexController extends AbstractActionController
 {
+    // NOTE: don't need a "use" statement: trait is in the same namespace
+    use ListingsTableTrait;
+    
     public function indexAction()
     {
-        $item = '';
+        $item = $this->listingsTable->getMostRecentListing();
         $messages = array();
         if ($this->flashMessenger()->hasMessages()) {
             $messages = $this->flashMessenger()->getMessages();
