@@ -39,7 +39,8 @@
                 <div class="collapse navbar-collapse">
                     <ul class="nav navbar-nav">
                         <li class="active"><a href="<?php echo $this->url('home') ?>"><?php echo $this->translate('Home') ?></a></li>
-                    </ul>
+                        <li class="active"><a href="<?php echo $this->url('market/post') ?>"><?php echo $this->translate('Post') ?></a></li>
+                        </ul>
                 </div><!--/.nav-collapse -->
             </div>
         </nav>
@@ -47,7 +48,7 @@
             <div class="col-lg-2">
             <?php if (isset($this->categories)) : ?>
             <?php if (is_array($this->categories)) : ?>
-            <?php echo $this->htmlList($this->categories); ?>
+            <?php echo $this->leftLinks($this->categories, '/market/view/main'); ?>
             <?php endif; ?>
             <?php endif; ?>
             </div>

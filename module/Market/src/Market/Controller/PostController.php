@@ -15,9 +15,15 @@ use Zend\View\Model\ViewModel;
 class PostController extends AbstractActionController
 {
     protected $categories;
+    protected $postForm;
+    
 	public function indexAction()
     {
-        $viewModel = new ViewModel(['categories' => $this->getCategories()]);
+        $viewModel = new ViewModel(['categories' => $this->getCategories(),
+                                    'form' => $this->postForm            
+        ]);
+        // TODO: don't forget to reset the view template!!!
+        $viewModel->setTemplate('market/post/invalid');
         return $viewModel;
     }
     /**

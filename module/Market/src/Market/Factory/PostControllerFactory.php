@@ -13,6 +13,7 @@ class PostControllerFactory implements FactoryInterface
         $controller = new PostController();
         $categories = $sm->get('application-categories');
         $controller->setCategories($categories);
+        // TODO: inject form into controller
         return $controller;
     }
 }

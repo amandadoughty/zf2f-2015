@@ -12,6 +12,7 @@ namespace Application\Controller;
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\View\Model\ViewModel;
 use Zend\View\Model\JsonModel;
+use Logger\Event\LoggerEvent;
 
 class IndexController extends AbstractActionController
 {
@@ -27,6 +28,7 @@ class IndexController extends AbstractActionController
     {
         $viewModel = new ViewModel();
         $viewModel->setVariable('whatever', 'TEST');
+        $this->getEventManager()->trigger(LoggerEvent::LOGGER_LOG, $this, ['message' => __FILE__, 'priority' => 0]);
         return $viewModel;
     }
     public function testAction()

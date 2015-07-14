@@ -9,6 +9,9 @@ return array(
             'market-post-controller'  => 'Market\Factory\PostControllerFactory',
         ),
     ),
+    'service_manager' => array(
+        // TODO: define form under factories
+    ),
     'router' => array(
         'routes' => array(
             'home' => array(
