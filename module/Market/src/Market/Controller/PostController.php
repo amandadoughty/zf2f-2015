@@ -15,10 +15,18 @@ class PostController extends AbstractActionController
     {
         
         // TODO: check to see if response is POST
-        // TODO: validate inputs
-        // TODO: insert filtered/validated data into database
-        // QUES: if the form fails validation ... what needs to be done?
-
+        $request = $this->getRequest();
+        if ($request->isPost()) {
+            // TODO: validate inputs
+            $this->postForm->setData($request->getPost());
+            if ($this->postForm->isValid()) {
+                // TODO: insert filtered/validated data into database
+                // $data = $this->postForm->getData();
+                $this->flashmessenger()->addMessage('Successfully posted data');
+            }
+            // QUES: if the form fails validation ... what needs to be done?
+            //       Just re-display the form w/ data + errors already embedded
+        }
         $viewModel = new ViewModel(['categories' => $this->getCategories(),
                                     'postForm'   => $this->postForm]);
         // reset the view template

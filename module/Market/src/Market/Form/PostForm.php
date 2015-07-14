@@ -5,6 +5,7 @@ use Zend\Form\Form;
 use Zend\Form\Element\Select;
 use Zend\Form\Element\Text;
 use Zend\Form\Element\Submit;
+
 class PostForm extends Form
 {
     protected $categories;
@@ -16,13 +17,14 @@ class PostForm extends Form
         $category = new Select('category');
         $category->setLabel('Category')
                  ->setAttribute('id', 'category')
-                 ->setValueOptions($this->getCategories());
+                 ->setValueOptions(array_combine($this->getCategories(),$this->getCategories()));
         
         $title = new Text('title');
         $title->setLabel('Title')
               ->setAttribute('id', 'title')
               ->setAttribute('class', 'titleClass')
               ->setAttribute('placeholder', 'Please enter a title');
+        
         $submit = new Submit('submit');
         $submit->setAttribute('value', 'Post');
                 

@@ -17,7 +17,9 @@ class ViewController extends AbstractActionController
     public function indexAction()
     {
         $category = $this->params()->fromRoute('category');
-        $viewModel = new ViewModel(['categories' => $category]);
+        $adapter = $this->getServiceLocator()->get('general-adapter');
+        $list = $adapter->query('SELECT * FROM listings WHERE category = ?', [$category]);
+        $viewModel = new ViewModel(['categories' => $category, 'list' => $list]);
         return $viewModel;
     }
     public function itemAction()

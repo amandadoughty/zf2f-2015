@@ -14,8 +14,10 @@ class PostFormFactory implements FactoryInterface
         $form->setCategories($categories);
         // NOTE: what if ... ?
         // TODO: set input filter
+        $form->setInputFilter($sm->get('market-filter-post'));
         $form->buildForm();
-        $form->prepare();        
+        // NOTE: prepare() *must* follow binding the form to an object
+        //$form->prepare();        
         return $form;
     }
 }

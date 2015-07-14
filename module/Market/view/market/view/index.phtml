@@ -1,1 +1,7 @@
 <h1><?php echo $this->escapeHtml($this->categories); ?></h1>
+<?php 
+foreach ($this->list as $item) {
+    Zend\Debug\Debug::dump($item);
+} 
+?>
+
