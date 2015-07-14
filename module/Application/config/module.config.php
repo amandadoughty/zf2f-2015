@@ -17,6 +17,46 @@ return array(
                     'defaults' => array(
                         'controller' => 'Application\Controller\Index',
                         'action'     => 'index',
+                        'whatever'   => 12345,
+                        'module'     => 'Application',
+                    ),
+                ),
+                'may_terminate' => TRUE,
+                'child_routes' => array(
+                    'other' => array(
+                        'type' => 'Zend\Mvc\Router\Http\Literal',
+                        'options' => array(
+                            'route'    => 'whatever',
+                            'defaults' => array(
+                                'controller' => 'Application\Controller\Index',
+                                'action'     => 'whatever',
+                            ),
+                        ),
+                        'may_terminate' => TRUE,
+                        'child_routes' => array(
+                            'trailing' => array(
+                                'type' => 'Zend\Mvc\Router\Http\Literal',
+                                'options' => array(
+                                    'route'    => '/',
+                                    'defaults' => array(
+                                        'controller' => 'Application\Controller\Index',
+                                        'action'     => 'whatever',
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            'alt-home' => array(
+                'type' => 'Zend\Mvc\Router\Http\Literal',
+                'options' => array(
+                    'route'    => '/alt',
+                    'defaults' => array(
+                        'controller' => 'Application\Controller\Index',
+                        'action'     => 'index',
+                        'whatever'   => 12345,
+                        'module'     => 'Application',
                     ),
                 ),
             ),

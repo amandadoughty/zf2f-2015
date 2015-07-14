@@ -16,8 +16,14 @@ class IndexController extends AbstractActionController
 {
     public function indexAction()
     {
-        $test = $this->someDate('2015-01-01');
+        $test = $this->getEvent()->getRouteMatch();
         $date = $this->getServiceLocator()->get('application-date-time');
         return new ViewModel(['test' => $test, 'date' => $date]);
+    }
+    public function whateverAction()
+    {
+        $response = $this->getResponse();
+        $response->setContent('Whatever');
+        return $response;
     }
 }
