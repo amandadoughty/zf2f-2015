@@ -1,16 +1,10 @@
 <?php
-/**
- * Zend Framework (http://framework.zend.com/)
- *
- * @link      http://github.com/zendframework/Market for the canonical source repository
- * @copyright Copyright (c) 2005-2015 Zend Technologies USA Inc. (http://www.zend.com)
- * @license   http://framework.zend.com/license/new-bsd New BSD License
- */
-
 namespace Market\Controller;
 
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\View\Model\ViewModel;
+use Zend\Log\Logger;
+use Logger\Event\LoggerEvent;
 
 class PostController extends AbstractActionController
 {
@@ -24,6 +18,7 @@ class PostController extends AbstractActionController
         // TODO: validate inputs
         // TODO: insert filtered/validated data into database
         // QUES: if the form fails validation ... what needs to be done?
+
         $viewModel = new ViewModel(['categories' => $this->getCategories(),
                                     'postForm'   => $this->postForm]);
         // reset the view template
@@ -45,4 +40,12 @@ class PostController extends AbstractActionController
     {
         $this->postForm = $postForm;
     }
+
+    protected function logSomething($message)
+    {
+        $this->getEventManager()->trigger(LoggerEvent::LOGGER_LOG, 
+                                          $this, 
+                                          ['priority' => 7, 'message' => $message]);
+    }
+    
 }

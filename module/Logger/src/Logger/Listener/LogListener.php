@@ -71,6 +71,16 @@ class LogListener implements ListenerAggregateInterface, ServiceLocatorAwareInte
     {
         $logger = $this->getServiceLocator()->get('logger-instance');
         $params = $e->getParams();
-        $logger->log($params['message'], $params['priority']);
+        if (isset($params['priority'])) {
+            $priority = $params['priority'] & 0xb0111;
+        } else {
+            $priority = 7;
+        }
+        if (isset($params['message'])) {
+            $message = $params['message'];
+        } else {
+            $message = 'Unknown';
+        }
+        $logger->log($priority, $message);
     }
 }

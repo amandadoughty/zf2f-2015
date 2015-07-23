@@ -6,7 +6,7 @@ return [
         ],
         'services' => [
             'logger-params' => [
-                'dir' => __DIR__ . '/../../../data/log',
+                'dir' => __DIR__ . '/../../../data/logs',
             ],
         ],
     ],  

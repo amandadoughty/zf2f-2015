@@ -14,7 +14,7 @@ return array(
         'Xyz',
         'Market',
         'Search',
-        //'Logger',
+        'Logger',
         'ZendDeveloperTools',
     ),
 

@@ -27,9 +27,10 @@ class Module
         return [
             'factories' => [
                 'logger-instance' => function ($sm) {
-                    $logFile = $sm->get('logger-params')['dir'] . '/' . date('Ymd');
-                    $writer = new Stream($logFile);
-                    return new Logger($writer);
+                    $logFile = $sm->get('logger-params')['dir'] . '/' . date('Ymd') . '.log';
+                    $logger = new Logger();
+                    $logger->addWriter(new Stream($logFile));
+                    return $logger;
                 }
             ],  
         ];
