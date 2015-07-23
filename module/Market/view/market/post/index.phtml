@@ -1,4 +1,7 @@
 <!--  BE SURE TO RESET THIS TEMPLATE!!!! -->
 <!--  TODO: set the action + display the form -->
 <h1>Post an Item</h1>
-<?php Zend\Debug\Debug::dump($this->categories); ?>
+<?php $this->postForm->setAttribute('action', $this->url('market/post')) ?>
+<?= $this->form()->openTag($this->postForm); ?>
+<?= $this->formCollection($this->postForm); ?>
+<?= $this->form()->closeTag(); ?>

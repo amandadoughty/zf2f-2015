@@ -11,6 +11,9 @@ return array(
     ),
     'service_manager' => array(
         // TODO: define form under factories
+        'factories' => array(
+            'market-form-post'  => 'Market\Factory\PostFormFactory',
+        ),
     ),
     'router' => array(
         'routes' => array(
