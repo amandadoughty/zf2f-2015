@@ -1,3 +1,7 @@
-<strong>Module:</strong>        Market &raquo;
-<strong>Controller:</strong>    Index &raquo;
-<strong>Action:</strong>        index
+<h1>Online Market</h1>
+<?php if ($messages) : ?>
+<ul>
+<?php foreach ($messages as $item) printf('<li>%s</li>', $item); ?>
+</ul>
+<?php endif; ?>
+<?= $this->partial('partials/item', ['item' => $item]) ?>

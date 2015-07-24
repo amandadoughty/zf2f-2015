@@ -19,13 +19,15 @@ class ViewController extends AbstractActionController
         $category = $this->params()->fromRoute('category');
         $adapter = $this->getServiceLocator()->get('general-adapter');
         $list = $adapter->query('SELECT * FROM listings WHERE category = ?', [$category]);
-        $viewModel = new ViewModel(['categories' => $category, 'list' => $list]);
+        $viewModel = new ViewModel(['category' => $category, 'list' => $list]);
         return $viewModel;
     }
     public function itemAction()
     {
         $itemId = $this->params()->fromRoute('itemId');
-        $viewModel = new ViewModel(['itemId' => $itemId]);
+        $adapter = $this->getServiceLocator()->get('general-adapter');
+        $item = $adapter->query('SELECT * FROM listings WHERE listings_id = ? LIMIT 1', [$itemId]);
+        $viewModel = new ViewModel(['itemId' => $itemId, 'item' => $item->current()]);
         return $viewModel;
     }
 }

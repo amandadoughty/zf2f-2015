@@ -10,9 +10,10 @@ class PostFormFactory implements FactoryInterface
     public function createService(ServiceLocatorInterface $sm)
     {
         $form = new PostForm();
-        $categories = $sm->get('application-categories');
-        $form->setCategories($categories);
-        // NOTE: what if ... ?
+        $form->setCategories($sm->get('application-categories'));
+        $form->setExpireDays($sm->get('market-expire-days'));
+        $form->setCities($sm->get('market-cities'));
+        $form->setCaptchaOptions($sm->get('market-captcha-options'));
         // TODO: set input filter
         $form->setInputFilter($sm->get('market-filter-post'));
         $form->buildForm();

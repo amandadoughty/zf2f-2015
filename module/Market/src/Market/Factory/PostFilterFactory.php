@@ -12,7 +12,8 @@ class PostFilterFactory implements FactoryInterface
         $filter = new PostFilter();
         $categories = $sm->get('application-categories');
         $filter->setCategories($categories);
-        // NOTE: what if ... ?
+        $filter->setExpireDays($sm->get('market-expire-days'));
+        $filter->setCities($sm->get('market-cities'));
         $filter->buildFilter();
         return $filter;
     }

@@ -1,87 +1,53 @@
 <?php
-return array(
-    'controllers' => array(
-    	'invokables' => array(
+return [
+    'controllers' => [
+    	'invokables' => [
             // test controller has no dependencies
     		'search-test-controller' => 'Search\Controller\TestController',
-    	),
-        'factories' => array(
+    	],
+        'factories' => [
         	// search controller depends on the database
             'search-controller' => 'Search\Factory\SearchControllerFactory',
-        ),
-    ),
-	'service_manager' => array(
-		'invokables' => array(
+        ],
+    ],
+	'service_manager' => [
+		'invokables' => [
 			'search-form' => 'Search\Form\SearchForm',
 			'search-form-filter' => 'Search\Form\SearchFormFilter',
-		),
-		'factories' => array(
+		],
+		'factories' => [
 			'search-listings-table' => 'Search\Factory\ListingsTableFactory',
-		),
-	),
-    'router' => array(
-        'routes' => array(
-            'search-home' => array(
+		],
+	],
+    'router' => [
+        'routes' => [
+            'search' => [
                 'type'    => 'Literal',
-                'options' => array(
+                'options' => [
                     'route'    => '/search',
-                    'defaults' => array(
+                    'defaults' => [
                         'controller'    => 'search-controller',
                         'action'        => 'index',
-                    ),
-                ),
+                    ],
+                ],
                 'may_terminate' => true,
-                'child_routes' => array(
-                    'default' => array(
+                'child_routes' => [
+                    'default' => [
                         'type'    => 'Segment',
-                        'options' => array(
+                        'options' => [
                             'route'    => '/[:action]',
-                            'constraints' => array(
+                            'constraints' => [
                                 'action'     => '[a-zA-Z][a-zA-Z0-9_-]*',
-                            ),
-                            'defaults' => array(
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            'search-list' => array(
-                'type'    => 'Literal',
-                'options' => array(
-                    'route'    => '/search/list',
-                    'defaults' => array(
-                        'controller'    => 'search-controller',
-                        'action'        => 'list',
-                    ),
-                ),
-                'may_terminate' => true,
-                'child_routes' => array(
-                    'default' => array(
-                        'type'    => 'Segment',
-                        'options' => array(
-                            'route'    => '[/]',
-                            'defaults' => array(
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        	// used to test that the controller shows up
-            'search-test' => array(
-                'type'    => 'Literal',
-                'options' => array(
-                    'route'    => '/search/test',
-                    'defaults' => array(
-                        'controller'    => 'search-test-controller',
-                        'action'        => 'index',
-                    ),
-                ),
-            ),
-        ),
-    ),
-    'view_manager' => array(
-        'template_path_stack' => array(
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ],
+    'view_manager' => [
+        'template_path_stack' => [
             'Search' => __DIR__ . '/../view',
-        ),
-    ),
-);
+        ],
+    ],
+];

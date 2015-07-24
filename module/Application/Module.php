@@ -29,17 +29,20 @@ class Module
         $moduleRouteListener = new ModuleRouteListener();
         $moduleRouteListener->attach($eventManager);
         $eventManager->attach(MvcEvent::EVENT_DISPATCH, [$this,'onDispatch'], 100);
-        $eventManager->attach(MvcEvent::EVENT_DISPATCH_ERROR, [$this,'onError'], 1000);
+        //$eventManager->attach(MvcEvent::EVENT_DISPATCH_ERROR, [$this, 'onError'], 100);
         //$eventManager->attach('*', [$this,'onTest'], 100);
     }
 
-    public function onError(MvcEvent $e)
-    {
-        $response = $e->getResponse();
-        $response->setContent('Have a great day');
-        return $response;
-    }
-    
+	public function onError(MvcEvent $e)
+	{
+        // set categories
+        $this->onDispatch($e);
+		// get view model + set variable for categories
+        $viewModel = $e->getViewModel();
+        $viewModel->setTemplate('error/alt-error');
+        $viewModel->setVariable('message', '<h3>Hmmmm ... <br>we seem to have <br>encountered an error!</h3>');
+	}
+        
     public function onDispatch(MvcEvent $e)
     {
         $svcMgr = $e->getApplication()->getServiceManager();

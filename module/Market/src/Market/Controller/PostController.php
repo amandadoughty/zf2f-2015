@@ -23,6 +23,7 @@ class PostController extends AbstractActionController
                 // TODO: insert filtered/validated data into database
                 // $data = $this->postForm->getData();
                 $this->flashmessenger()->addMessage('Successfully posted data');
+                $this->redirect()->toRoute('home');
             }
             // QUES: if the form fails validation ... what needs to be done?
             //       Just re-display the form w/ data + errors already embedded

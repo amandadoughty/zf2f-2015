@@ -1,116 +1,133 @@
 <?php
-return array(
-    'controllers' => array(
-        'invokables' => array(
+return [
+    'controllers' => [
+        'invokables' => [
             'market-index-controller' => 'Market\Controller\IndexController',
             'market-view-controller'  => 'Market\Controller\ViewController',
-        ),
-        'factories' => array(
+        ],
+        'factories' => [
             'market-post-controller'  => 'Market\Factory\PostControllerFactory',
-        ),
-    ),
-    'service_manager' => array(
-        // TODO: define form under factories
-        'factories' => array(
+        ],
+    ],
+    'service_manager' => [
+        'factories' => [
             'market-form-post'   => 'Market\Factory\PostFormFactory',
             'market-filter-post' => 'Market\Factory\PostFilterFactory',
-        ),
-    ),
-    'router' => array(
-        'routes' => array(
-            'home' => array(
+        ],
+        'services' => [
+            'market-expire-days' => [ 
+                0  => 'Never', 
+                1  => 'Tomorrow', 
+                7  => 'Week', 
+                30 => 'Month'
+            ],
+            'market-cities' => [
+                'Paris,FR'     => 'Paris',
+                'London,UK'    => 'London',
+                'New York,USA' => 'New York',
+                'Berlin,DE'    => 'Berlin'
+            ],
+            'market-captcha-options' => [
+                'expiration' => 300,
+                'font'		=> '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+                'fontSize'	=> 24,
+                'height'	=> 50,
+                'width'		=> 200,
+                'imgDir'	=> __DIR__ . '/../../../public/captcha',
+                'imgUrl'	=> '/captcha',    	
+            ],
+        ],
+    ],
+    'router' => [
+        'routes' => [
+            'home' => [
                 'type'    => 'Zend\Mvc\Router\Http\Literal',
-                'options' => array(
+                'options' => [
                     // Change this to something specific to your module
                     'route'    => '/',
-                    'defaults' => array(
+                    'defaults' => [
                         'controller'    => 'market-index-controller',
                         'action'        => 'index',
-                    ),
-                ),
-            ),
-            'market' => array(
+                    ],
+                ],
+            ],
+            'market' => [
                 'type'    => 'Zend\Mvc\Router\Http\Literal',
-                'options' => array(
-                    // Change this to something specific to your module
+                'options' => [
                     'route'    => '/market',
-                    'defaults' => array(
+                    'defaults' => [
                         'controller'    => 'market-index-controller',
                         'action'        => 'index',
-                    ),
-                ),
+                    ],
+                ],
                 'may_terminate' => true,
-                'child_routes' => array(
-                    'view' => array(
+                'child_routes' => [
+                    'view' => [
                         'type'    => 'Zend\Mvc\Router\Http\Literal',
-                        'options' => array(
-                            // Change this to something specific to your module
+                        'options' => [
                             'route'    => '/view',
-                            'defaults' => array(
+                            'defaults' => [
                                 'controller'    => 'market-view-controller',
                                 'action'        => 'index',
-                            ),
-                        ),
+                            ],
+                        ],
                         'may_terminate' => true,
-                        'child_routes' => array(
-                            'index' => array(
+                        'child_routes' => [
+                            'index' => [
                                 'type'    => 'Zend\Mvc\Router\Http\Segment',
-                                'options' => array(
+                                'options' => [
                                     'route'    => '/main[/:category]',
-                                    'defaults' => array(
-                                        'action'        => 'index',
-                                    ),
-                                    'constraints' => array(
+                                    'defaults' => [
+                                        'action' => 'index',
+                                    ],
+                                    'constraints' => [
                                         'category' => '[a-zA-Z]*',
-                                    ),
-                                ),
-                            ),
-                            'item' => array(
+                                    ],
+                                ],
+                            ],
+                            'item' => [
                                 'type'    => 'Zend\Mvc\Router\Http\Segment',
-                                'options' => array(
+                                'options' => [
                                     'route'    => '/item[/:itemId]',
-                                    'defaults' => array(
+                                    'defaults' => [
                                         'action'        => 'item',
-                                    ),
-                                    'constraints' => array(
+                                    ],
+                                    'constraints' => [
                                         'itemId' => '[0-9]*',
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    'post' => array(
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'post' => [
                         'type'    => 'Zend\Mvc\Router\Http\Literal',
-                        'options' => array(
-                            // Change this to something specific to your module
+                        'options' => [
                             'route'    => '/post',
-                            'defaults' => array(
+                            'defaults' => [
                                 'controller'    => 'market-post-controller',
                                 'action'        => 'index',
-                            ),
-                        ),
-                    ),
+                            ],
+                        ],
+                    ],
                     /*
-                    'default' => array(
+                    'default' => [
                         'type'    => 'Segment',
-                        'options' => array(
+                        'options' => [
                             'route'    => '/[:controller[/:action]]',
-                            'constraints' => array(
+                            'constraints' => [
                                 'controller' => '[a-zA-Z][a-zA-Z0-9_-]*',
                                 'action'     => '[a-zA-Z][a-zA-Z0-9_-]*',
-                            ),
-                            'defaults' => array(
-                            ),
-                        ),
-                    ),
+                            ],
+                            'defaults' => [
+                            ],
+                        ],
+                    ],
                     */
-                ),
-            ),
-        ),
-    ),
-    'view_manager' => array(
-        'template_path_stack' => array(
-            'Market' => __DIR__ . '/../view',
-        ),
-    ),
-);
+                ],
+            ],
+        ],
+    ],
+    'view_manager' => [
+        'template_map' => include __DIR__ . '/../template_map.php',
+    ],
+];
