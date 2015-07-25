@@ -11,6 +11,9 @@ return [
         ],
     ],
 	'service_manager' => [
+        'aliases' => [
+            'categories' => 'application-categories',
+        ],
 		'invokables' => [
 			'search-form' => 'Search\Form\SearchForm',
 			'search-form-filter' => 'Search\Form\SearchFormFilter',
@@ -32,13 +35,10 @@ return [
                 ],
                 'may_terminate' => true,
                 'child_routes' => [
-                    'default' => [
+                    'list' => [
                         'type'    => 'Segment',
                         'options' => [
-                            'route'    => '/[:action]',
-                            'constraints' => [
-                                'action'     => '[a-zA-Z][a-zA-Z0-9_-]*',
-                            ],
+                            'route'    => '/list[/]',
                         ],
                     ],
                 ],

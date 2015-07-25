@@ -15,6 +15,7 @@ return array(
         'Market',
         'Search',
         'Logger',
+        'Notification',
         'ZendDeveloperTools',
     ),
 

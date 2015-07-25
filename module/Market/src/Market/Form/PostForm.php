@@ -28,7 +28,7 @@ class PostForm extends Form
               ->setAttribute('class', 'titleClass')
               ->setAttribute('placeholder', 'Please enter a title');
         
-		$photo = new Element\Text('photo_filename');
+		$photo = new Element\Text('photoFilename');
 		$photo->setLabel('Photo')
 			  ->setAttribute('maxlength', 256);
 		
@@ -45,25 +45,25 @@ class PostForm extends Form
 			    ->setValueOptions($this->expireDays)
                 ->setValue(0);
 		
-		$city = new Element\Select('city');
+		$city = new Element\Select('cityCountry');
 		$city->setLabel('Nearest City')
 			  ->setAttribute('title', 'Select the city of the item')
 			  ->setValueOptions($this->cities)
               ->setEmptyOption('Choose');
 				
-		$name = new Element\Text('contact_name');
+		$name = new Element\Text('contactName');
 		$name->setLabel('Contact Name')
 			 ->setAttribute('title', 'Enter the name of the person to contact for this item')
 			 ->setAttribute('size', 40)
 			 ->setAttribute('maxlength', 255);
 		
-		$phone = new Element\Text('contact_phone');
+		$phone = new Element\Text('contactPhone');
 		$phone->setLabel('Contact Phone Number')
 			  ->setAttribute('title', 'Enter the phone number of the person to contact for this item')
 			  ->setAttribute('size', 20)
 			  ->setAttribute('maxlength', 32);
 		
-		$email = new Element\Email('contact_email');
+		$email = new Element\Email('contactEmail');
 		$email->setLabel('Contact Email')
 			  ->setAttribute('title', 'Enter the email address of the person to contact for this item')
 			  ->setAttribute('size', 40)

@@ -13,6 +13,7 @@ use DateTime;
 use Zend\Mvc\ModuleRouteListener;
 use Zend\Mvc\MvcEvent;
 use Zend\ModuleManager\ModuleManager;
+use Zend\Session\Container;
 
 class Module
 {
@@ -29,8 +30,8 @@ class Module
         $moduleRouteListener = new ModuleRouteListener();
         $moduleRouteListener->attach($eventManager);
         $eventManager->attach(MvcEvent::EVENT_DISPATCH, [$this,'onDispatch'], 100);
+        // NOTE: you can use the line below to trap 404 and general dispatch errors
         //$eventManager->attach(MvcEvent::EVENT_DISPATCH_ERROR, [$this, 'onError'], 100);
-        //$eventManager->attach('*', [$this,'onTest'], 100);
     }
 
 	public function onError(MvcEvent $e)
@@ -50,14 +51,6 @@ class Module
         $viewModel->setVariable('categories', $svcMgr->get('application-categories'));
     }
     
-    public function test($e)
-    {
-        printf('<br>%20s : %20s : %5d', 
-        $e->getName(), 
-        get_class($e->getTarget()),
-        count($e->getParams()));
-    }
-    
     public function onTest($e)
     {
         printf('<br>%20s : %20s : %5d', 
@@ -65,6 +58,7 @@ class Module
         get_class($e->getTarget()),
         count($e->getParams()));
     }
+    
     public function getConfig()
     {
         return include __DIR__ . '/config/module.config.php';
@@ -72,14 +66,9 @@ class Module
 
     public function getAutoloaderConfig()
     {
-        return array(
-            'Zend\Loader\StandardAutoloader' => array(
-                'namespaces' => array(
-                    __NAMESPACE__ => __DIR__ . '/src/' . __NAMESPACE__,
-                ),
-            ),
-        );
+        return ['Zend\Loader\ClassMapAutoloader' => [__DIR__ . '/autoload_classmap.php']];
     }
+   
 
     public function getServiceConfig()
     {
@@ -90,6 +79,9 @@ class Module
             'factories' => [
                 'application-date-time' => function ($sm) {
                     return new \DateTime();
+                },
+                'application-session' => function ($sm) {
+                    return new Container('onlineMarket');
                 },
             ],
         ];

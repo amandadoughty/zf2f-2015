@@ -11,7 +11,8 @@ class SearchForm extends Form
 	{
 		$category = new Element\Select('category');
 		$category->setLabel('Category')
-				 ->setOptions(array('options' => $categories));
+				 ->setValueOptions(array_combine($categories,$categories))
+                 ->setEmptyOption('Choose');
 		
 		$title = new Element\Text('title');
 		$title->setLabel('Title')

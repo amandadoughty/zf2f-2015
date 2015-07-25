@@ -22,7 +22,6 @@ input {
 	<?php
 	$form = $this->searchForm;
 	$form->prepare();
-	$form->setAttribute('action', $this->url('search-list'));
 	$form->setAttribute('method', 'POST');
 	echo $this->form()->openTag($form);
 	?>

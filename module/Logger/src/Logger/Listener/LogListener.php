@@ -1,4 +1,7 @@
 <?php
+/**
+ * This module demonstrates how to setup a stand-alone listener class
+ */
 namespace Logger\Listener;
 
 use Logger\Event\LoggerEvent;
@@ -38,7 +41,7 @@ class LogListener extends AbstractListenerAggregate implements ServiceLocatorAwa
         $logger = $this->getServiceLocator()->get('logger-instance');
         $params = $e->getParams();
         if (isset($params['priority'])) {
-            $priority = $params['priority'] & 0xb0111;
+            $priority = $params['priority'] & 0b0111;
         } else {
             $priority = 7;
         }

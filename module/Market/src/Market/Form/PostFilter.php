@@ -35,12 +35,12 @@ class PostFilter extends InputFilter
         
 		// used for InArray validators
 		
-		$photo = new Input('photo_filename');
+		$photo = new Input('photoFilename');
 		$photo->getFilterChain()
 				 ->attachByName('StripTags')
 				 ->attachByName('StringTrim');
 		$photo->getValidatorChain()
-			  ->attachByName('Regex', ['pattern' => '!^(http://)?[a-z0-9./_-]+(jpg|png)$!i']);
+			  ->attachByName('Regex', ['pattern' => '!^(http(s)?://)?[a-z0-9./_-]+(jpg|png)$!i']);
 		$photo->setErrorMessage('Photo must be a URL or a valid filename ending with jpg or png');
 
         $callback = function ($value) { return (float) $value; };
@@ -56,24 +56,24 @@ class PostFilter extends InputFilter
 		$expires->getValidatorChain()
 				->attachByName('InArray', ['haystack' => $expireList]);
 		
-		$city = new Input('city');
+		$city = new Input('cityCountry');
 		$city->setAllowEmpty(TRUE);
 		$city->getValidatorChain()
 			 ->attachByName('InArray', ['haystack' => $cityList]);
 		
-		$name = new Input('contact_name');
+		$name = new Input('contactName');
 		$name->setAllowEmpty(TRUE);
 		$name->getValidatorChain()
 			  ->attachByName('Regex', ['pattern' => '/^[a-z0-9., -]{1,255}$/i']);
 		$name->setErrorMessage('Name should only contain letters, numbers, and some punctuation.');
   
-		$phone = new Input('contact_phone');
+		$phone = new Input('contactPhone');
 		$phone->setAllowEmpty(TRUE);
 		$phone->getValidatorChain()
 			  ->attachByName('Regex', ['pattern' => '/^\+?\d{1,4}(-\d{3,4})+$/']);
 		$phone->setErrorMessage('Phone number must be in this format: +nnnn-nnn-nnn-nnnn');
   
-		$email = new Input('contact_email');
+		$email = new Input('contactEmail');
 		$email->setAllowEmpty(TRUE);
 		$email->getValidatorChain()
 			  ->attachByName('EmailAddress');

@@ -16,6 +16,7 @@ class PostControllerFactory implements FactoryInterface
         // inject form into controller
         $controller->setPostForm($sm->get('market-form-post'));
         $controller->setListingsTable($sm->get('market-listings-table'));
+        $controller->setSession($sm->get('application-session'));
         return $controller;
     }
 }
