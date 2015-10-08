@@ -11,28 +11,19 @@ namespace Application\Controller;
 
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\View\Model\ViewModel;
-use Zend\View\Model\JsonModel;
-use Logger\Event\LoggerEvent;
 
 class IndexController extends AbstractActionController
 {
     public function indexAction()
     {
-        $test = $this->getEvent()->getRouteMatch();
-        $date = $this->getServiceLocator()->get('application-date-time');
-        $viewModel = new ViewModel(['test' => $test, 'date' => $date]);
-        $viewModel->setTemplate('application/index/index');
-        return $viewModel;
+        echo $this->getServiceLocator()->get('application-service-test');
+        \Zend\Debug\Debug::dump($this->getServiceLocator()->get('application-service-test-array'));
+        $date = $this->getServiceLocator()->get('application-date-service');
+        echo $date->format('Y-m-d H:i:s');
+        $em = $this->getEventManager();
+        $em->setIdentifiers('WHATEVER');
+        $em->trigger('SPECIAL', $this, ['test' => __FILE__]);
+        return new ViewModel();
     }
-    public function whateverAction()
-    {
-        $viewModel = new ViewModel();
-        $viewModel->setVariable('whatever', 'TEST');
-        $this->getEventManager()->trigger(LoggerEvent::LOGGER_LOG, $this, ['message' => __FILE__, 'priority' => 0]);
-        return $viewModel;
-    }
-    public function testAction()
-    {
-        return new JsonModel(['whatever' => 'TEST']);
-    }
+
 }

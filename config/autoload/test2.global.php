@@ -16,24 +16,6 @@ return array(
         'services' => array(
             'application-service-test' => __FILE__,
             'application-service-test-array' => array(__FILE__),
-            'categories' => array(
-                'barter',
-                'health',
-                'beauty',
-                'household',
-                'clothing',
-                'phones',
-                'computer',
-                'property',
-                'entertainment',
-                'sporting',
-                'free',
-                'tools',
-                'garden',
-                'transportation',
-                'general',
-                'wanted',
-            ),
         ),
     )
 );

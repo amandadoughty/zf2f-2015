@@ -7,65 +7,18 @@
  * @license   http://framework.zend.com/license/new-bsd New BSD License
  */
 
+namespace Application;
+
 return array(
     'router' => array(
         'routes' => array(
-            'app-home' => array(
+            'home' => array(
                 'type' => 'Zend\Mvc\Router\Http\Literal',
                 'options' => array(
-                    'route'    => '/app-home',
+                    'route'    => '/',
                     'defaults' => array(
                         'controller' => 'Application\Controller\Index',
                         'action'     => 'index',
-                        'whatever'   => 12345,
-                        'module'     => 'Application',
-                    ),
-                ),
-                'may_terminate' => TRUE,
-                'child_routes' => array(
-                    'test' => array(
-                        'type' => 'Zend\Mvc\Router\Http\Literal',
-                        'options' => array(
-                            'route'    => '/test',
-                            'defaults' => array(
-                                'action'     => 'test',
-                            ),
-                        ),
-                    ),
-                    'other' => array(
-                        'type' => 'Zend\Mvc\Router\Http\Literal',
-                        'options' => array(
-                            'route'    => '/whatever',
-                            'defaults' => array(
-                                'controller' => 'Application\Controller\Index',
-                                'action'     => 'whatever',
-                            ),
-                        ),
-                        'may_terminate' => TRUE,
-                        'child_routes' => array(
-                            'trailing' => array(
-                                'type' => 'Zend\Mvc\Router\Http\Literal',
-                                'options' => array(
-                                    'route'    => '/',
-                                    'defaults' => array(
-                                        'controller' => 'Application\Controller\Index',
-                                        'action'     => 'whatever',
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            'alt-home' => array(
-                'type' => 'Zend\Mvc\Router\Http\Literal',
-                'options' => array(
-                    'route'    => '/alt',
-                    'defaults' => array(
-                        'controller' => 'Application\Controller\Index',
-                        'action'     => 'index',
-                        'whatever'   => 12345,
-                        'module'     => 'Application',
                     ),
                 ),
             ),
@@ -101,39 +54,20 @@ return array(
             ),
         ),
     ),
-    'controller_plugins' => array(
-        'invokables' => array(
-            'someDate' => 'Application\Plugins\SomeDate',
-        ),
-    ),
     'service_manager' => array(
-        'services' => [
-            'application-test' => ['2' => __FILE__],
-            'application-categories' => [
-                'barter',
-                'beauty',
-                'clothing',
-                'computer',
-                'entertainment',
-                'free',
-                'garden',
-                'general',
-                'health',
-                'household',
-                'phones',
-                'property',
-                'sporting',
-                'tools',
-                'transportation',
-                'wanted',
-            ],
-         ],
+        'services' => array(
+            'application-service-test' => __FILE__,
+            'application-service-test-array' => array(__FILE__),
+        ),
         'abstract_factories' => array(
             'Zend\Cache\Service\StorageCacheAbstractServiceFactory',
             'Zend\Log\LoggerAbstractServiceFactory',
         ),
         'factories' => array(
             'translator' => 'Zend\Mvc\Service\TranslatorServiceFactory',
+            'application-date-service' => function ($sm) {
+                return new \DateTime();
+            }
         ),
     ),
     'translator' => array(
@@ -148,12 +82,7 @@ return array(
     ),
     'controllers' => array(
         'invokables' => array(
-            'Application\Controller\Index' => 'Application\Controller\IndexController'
-        ),
-    ),
-    'view_helpers' => array(
-        'invokables' => array(
-            'leftLinks' => 'Application\Helper\LeftLinks',
+            'Application\Controller\Index' => Controller\IndexController::class
         ),
     ),
     'view_manager' => array(
@@ -162,12 +91,14 @@ return array(
         'doctype'                  => 'HTML5',
         'not_found_template'       => 'error/404',
         'exception_template'       => 'error/index',
-        'template_map'             => include __DIR__ . '/../template_map.php',
-        //'template_path_stack' => array(
-        //    __DIR__ . '/../view',
-        //),
-        'strategies' => array(
-            'ViewJsonStrategy',
+        'template_map' => array(
+            'layout/layout'           => __DIR__ . '/../view/layout/layout.phtml',
+            'application/index/index' => __DIR__ . '/../view/application/index/index.phtml',
+            'error/404'               => __DIR__ . '/../view/error/404.phtml',
+            'error/index'             => __DIR__ . '/../view/error/index.phtml',
+        ),
+        'template_path_stack' => array(
+            __DIR__ . '/../view',
         ),
     ),
     // Placeholder for console routes

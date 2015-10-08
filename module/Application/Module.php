@@ -9,54 +9,33 @@
 
 namespace Application;
 
-use DateTime;
 use Zend\Mvc\ModuleRouteListener;
 use Zend\Mvc\MvcEvent;
-use Zend\ModuleManager\ModuleManager;
-use Zend\Session\Container;
 
 class Module
 {
-    public function init(ModuleManager $mm)
-    {
-        $eventManager = $mm->getEventManager();
-        $shared = $eventManager->getSharedManager();
-        //$shared->attach('*', '*', array($this, 'test'), 10);
-    }
-    
     public function onBootstrap(MvcEvent $e)
     {
         $eventManager        = $e->getApplication()->getEventManager();
         $moduleRouteListener = new ModuleRouteListener();
         $moduleRouteListener->attach($eventManager);
-        $eventManager->attach(MvcEvent::EVENT_DISPATCH, [$this,'onDispatch'], 100);
-        // NOTE: you can use the line below to trap 404 and general dispatch errors
-        //$eventManager->attach(MvcEvent::EVENT_DISPATCH_ERROR, [$this, 'onError'], 100);
+        // attach a listener to the dispatch event
+        $eventManager->attach(MvcEvent::EVENT_DISPATCH, array($this, 'onDispatch'), 100);
+        // attach using the shared manager
+        $shared = $eventManager->getSharedManager();
+        //$shared->attach('WHATEVER', 'SPECIAL', array($this, 'onSpecial'));
     }
 
-	public function onError(MvcEvent $e)
-	{
-        // set categories
-        $this->onDispatch($e);
-		// get view model + set variable for categories
-        $viewModel = $e->getViewModel();
-        $viewModel->setTemplate('error/alt-error');
-        $viewModel->setVariable('message', '<h3>Hmmmm ... <br>we seem to have <br>encountered an error!</h3>');
-	}
-        
     public function onDispatch(MvcEvent $e)
     {
-        $svcMgr = $e->getApplication()->getServiceManager();
-        $viewModel = $e->getViewModel();
-        $viewModel->setVariable('categories', $svcMgr->get('application-categories'));
+        $sm = $e->getApplication()->getServiceManager();
+        $view = $e->getViewModel();
+        $view->setVariable('categories', $sm->get('categories'));
     }
     
-    public function onTest($e)
+    public function onSpecial($e)
     {
-        printf('<br>%20s : %20s : %5d', 
-        $e->getName(), 
-        get_class($e->getTarget()),
-        count($e->getParams()));
+        echo $e->getParam('test');
     }
     
     public function getConfig()
@@ -66,24 +45,30 @@ class Module
 
     public function getAutoloaderConfig()
     {
-        return ['Zend\Loader\ClassMapAutoloader' => [__DIR__ . '/autoload_classmap.php']];
+        return array(
+            'Zend\Loader\StandardAutoloader' => array(
+                'namespaces' => array(
+                    __NAMESPACE__ => __DIR__ . '/src/' . __NAMESPACE__,
+                ),
+            ),
+        );
     }
-   
-
+    
     public function getServiceConfig()
     {
-        return [
-            'services' => [
-                'application-test' => ['1' => __FILE__],
-            ],
-            'factories' => [
-                'application-date-time' => function ($sm) {
+        return array(
+            'services' => array(
+                'application-service-test' => __FILE__,
+                'application-service-test-array' => array(__FILE__),
+            ),
+            /*
+            'factories' => array(
+                'application-date-service' => function ($sm) {
                     return new \DateTime();
-                },
-                'application-session' => function ($sm) {
-                    return new Container('onlineMarket');
-                },
-            ],
-        ];
+                }
+            ),
+            */
+        );
+       
     }
 }
