@@ -16,6 +16,8 @@ class IndexController extends AbstractActionController
 {
     public function indexAction()
     {
+        \Zend\Debug\Debug::dump($this->params()->fromQuery());
+        \Zend\Debug\Debug::dump($this->getEvent()->getRouteMatch());
         echo $this->getServiceLocator()->get('application-service-test');
         \Zend\Debug\Debug::dump($this->getServiceLocator()->get('application-service-test-array'));
         $date = $this->getServiceLocator()->get('application-date-service');
