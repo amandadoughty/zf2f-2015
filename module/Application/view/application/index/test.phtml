@@ -1,0 +1,12 @@
+<ul>
+<li>A: <?php echo $this->a ?></li>
+<li>B: <?php echo $this->b ?></li>
+<li>C: <?php echo $this->c ?></li>
+</ul>
+<?php //$a = 'CHANGED' ?>
+<?php $this->a = 'SOMETHING ELSE' ?>
+<ul>
+<li><?php echo $a ?></li>
+<li><?php echo $this->a ?></li>
+<li><?php echo $this->vars()->a ?></li>
+</ul>

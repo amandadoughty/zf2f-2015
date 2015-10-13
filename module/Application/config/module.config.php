@@ -12,13 +12,23 @@ namespace Application;
 return array(
     'router' => array(
         'routes' => array(
-            'home' => array(
+            'application-home' => array(
                 'type' => 'Zend\Mvc\Router\Http\Literal',
                 'options' => array(
-                    'route'    => '/',
+                    'route'    => '/app-home',
                     'defaults' => array(
                         'controller' => 'Application\Controller\Index',
                         'action'     => 'index',
+                    ),
+                ),
+            ),
+            'application-test' => array(
+                'type' => 'Zend\Mvc\Router\Http\Literal',
+                'options' => array(
+                    'route'    => '/app-test',
+                    'defaults' => array(
+                        'controller' => 'Application\Controller\Index',
+                        'action'     => 'test',
                     ),
                 ),
             ),
@@ -26,7 +36,7 @@ return array(
             // new controllers and actions without needing to create a new
             // module. Simply drop new controllers in, and you can access them
             // using the path /application/:controller/:action
-            'application' => array(
+            'whatever' => array(
                 'type'    => 'Literal',
                 'options' => array(
                     'route'    => '/application',
@@ -86,6 +96,7 @@ return array(
         ),
     ),
     'view_manager' => array(
+        'strategies'               => ['ViewJsonStrategy'],
         'display_not_found_reason' => true,
         'display_exceptions'       => true,
         'doctype'                  => 'HTML5',
