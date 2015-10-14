@@ -21,7 +21,7 @@ class IndexController extends AbstractActionController
             $messages = $this->flashMessenger()->getMessages();
         }
         $viewModel = new ViewModel(array('messages' => $messages));
-        $viewModel->setTemplate('application/index/index');
+        $viewModel->setTemplate('market/index/index');
         return $viewModel;
     }
 

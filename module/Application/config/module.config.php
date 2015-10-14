@@ -12,7 +12,7 @@ namespace Application;
 return array(
     'router' => array(
         'routes' => array(
-            'application-home' => array(
+            'app-home' => array(
                 'type' => 'Zend\Mvc\Router\Http\Literal',
                 'options' => array(
                     'route'    => '/app-home',
@@ -93,6 +93,11 @@ return array(
     'controllers' => array(
         'invokables' => array(
             'Application\Controller\Index' => Controller\IndexController::class
+        ),
+    ),
+    'view_helpers' => array(
+        'invokables' => array(
+            'leftLinks'    => 'Application\Helper\LeftLinks',
         ),
     ),
     'view_manager' => array(

@@ -1,5 +1,10 @@
 <?php
 return array(
+    'service_manager' => array(
+        'factories' => array(
+            'market-post-form' => 'Market\Factory\PostFormFactory',
+        ),
+    ),
     'controllers' => array(
         'invokables' => array(
             'market-index-controller' => 'Market\Controller\IndexController',

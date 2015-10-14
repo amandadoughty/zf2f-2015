@@ -1,2 +1,6 @@
 <h1>Post Controller</h1>
-<?php Zend\Debug\Debug::dump($this->categories) ?>
+<?php $this->postForm->prepare(); ?>
+<?php echo $this->form()->openTag($this->postForm); ?>
+<?php echo $this->formcollection($this->postForm); ?>
+<?php echo $this->form()->closeTag(); ?>
+<?php //Zend\Debug\Debug::dump($this->categories) ?>
