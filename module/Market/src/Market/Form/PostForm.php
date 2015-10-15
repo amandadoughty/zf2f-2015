@@ -18,7 +18,7 @@ class PostForm extends Form
         $category = new Select('category');
         $category->setLabel('Category')
                  ->setAttribute('title', 'Please select one of these categories')
-                 ->setValueOptions($this->getCategories());
+                 ->setValueOptions(array_combine($this->getCategories(),$this->getCategories()));
         
         $title = new Text('title');
         $title->setLabel('Title')

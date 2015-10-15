@@ -11,8 +11,19 @@ class PostController extends AbstractActionController
     
     public function indexAction()
     {
+        $data = array();
+        if ($this->getRequest()->isPost()) {
+            $data = $this->params()->fromPost();
+            // assign data to form/filter
+            $this->postForm->setData($data);
+            if ($this->postForm->isValid()) {
+                // filtered and validated data
+                $data = $this->postForm->getData();
+            }
+        }
         $viewModel = new ViewModel(['categories' => $this->getCategories(),
                                     'postForm'   => $this->getPostForm(),
+                                    'data'       => $data,
         ]);
         $viewModel->setTemplate('market/post/index');
         return $viewModel;
