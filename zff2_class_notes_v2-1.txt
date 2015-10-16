@@ -1,0 +1,3559 @@
+ZF2F Class Notes: Course Version 2-1
+
+CLASS Q & A:
+
+Q: How do you implement transaction support?
+A: The proper way to Begin, Commit, and Rollback Transactions is as follows:
+    $this->getAdapter()->getDriver()->getConnection()->beginTransaction();
+    $this->getAdapter()->getDriver()->getConnection()->commit();
+    $this->getAdapter()->getDriver()->getConnection()->rollback();
+    You can also get the Last ID created by:
+    $this->getAdapter()->getDriver()->getConnection()->getLastGeneratedValue()
+   See: http://stackoverflow.com/questions/13831582/how-does-zend-db-in-zf2-control-transactions
+   
+Q: Examples of Zend\Db\Sql\Insert?
+A: see zend_db_sql_insert.php
+
+Q: Why did the ZF2 team decide to split the framework into individual components in the 2.5 release?
+A: See the discussion here: https://github.com/zendframework/zf2/issues/7072
+
+Q: Why did the ZF2 team up the minimum requirement to PHP 5.5 for ZF 2.5.1?
+A: See the discussion here: https://github.com/zendframework/zf2/pull/7119
+
+Q: Why am I not able to download the entire ZF2.5 using composer?
+A: There's a restriction on the number of packages you can access in a single download.
+   Go to the webpage indicated to get an OAuth token.
+
+Q: Is there anything special about ServiceLocatorAwareInterface and EventManagerAwareInterface?
+A: Have a look at Zend\Mvc\Service\ServiceManagerConfig::__construct()
+   There, 3 initializers are defined: 1 injects the event manager, the other 2 inject
+   the service manager ... as long as the class implements one or more of these interfaces
+ 
+Q: Does the redirect() plugin add a 302 status code?
+A: redirect()->toUrl() sets a 302 status code
+   redirect()->toRoute() sets any status code set in the array of options provided
+
+Q: What is a "cleaner" way to attach a listener to an event instead of cluttering up the Module.php file?
+A: You can set up a listener aggregate, identify it as a key under 'service_manager', and then list
+   this key under the 'listeners' key.
+
+<?php
+namespace Logger\Listener;
+
+use Logger\Event\LoggerEvent;
+use Zend\EventManager\EventManagerInterface;
+use Zend\ServiceManager\ServiceLocatorAwareInterface;
+use Zend\ServiceManager\ServiceLocatorAwareTrait;
+use Zend\EventManager\AbstractListenerAggregate;
+
+/**
+ * Logger listener aggregate
+ */
+class LogListener extends AbstractListenerAggregate implements ServiceLocatorAwareInterface
+{
+    
+    use ServiceLocatorAwareTrait;
+    
+    /**
+     * @var array
+     */
+    protected $listeners = array();
+
+    /**
+     * Attach one or more listeners
+     *
+     * @param  EventManagerInterface $events
+     * @return DefaultListenerAggregate
+     */
+    public function attach(EventManagerInterface $events)
+    {
+        $shared = $events->getSharedManager();
+        $this->listeners[] = $shared->attach('*', LoggerEvent::LOGGER_LOG, [$this, 'logSomething']);
+        return $this;
+    }
+
+    public function logSomething($e)
+    {
+        $logger = $this->getServiceLocator()->get('logger-instance');
+        $params = $e->getParams();
+        if (isset($params['priority'])) {
+            $priority = $params['priority'] & 0xb0111;
+        } else {
+            $priority = 7;
+        }
+        if (isset($params['message'])) {
+            $message = $params['message'];
+        } else {
+            $message = 'Unknown';
+        }
+        $logger->log($priority, $message);
+    }
+}
+// Logger/config/module.config.php
+<?php
+return [
+    'service_manager' => [
+        'invokables' => [
+            'logger-listener' => 'Logger\Listener\LogListener',
+        ],
+        'services' => [
+            'logger-params' => [
+                'dir' => __DIR__ . '/../../../data/logs',
+            ],
+        ],
+    ],  
+    'listeners' => [
+        'logger-listener',
+    ],
+];
+
+Q: How can I parse a form object (i.e. to apply settings, etc.)?
+A: Here is an example taken from Zend\Form\Form::prepare()
+    foreach ($form->getIterator() as $elementOrFieldset) {
+        if ($elementOrFieldset instanceof FormInterface) {
+            $elementOrFieldset->prepare();
+        } elseif ($elementOrFieldset instanceof ElementPrepareAwareInterface) {
+            $elementOrFieldset->prepareElement($this);
+        }
+    }
+
+Q: What is special about the "init()" method for Forms?
+A: "init()" is provided as an alternative to using __construct() to build form classes which extend Zend\Form\Form
+   It's run immediately after construct.  It can be used to define custom elements, etc.
+   See: http://framework.zend.com/manual/current/en/modules/zend.form.advanced-use-of-forms.html
+
+Q: How to handle alternate landing page for 404 errors?
+A: An example using Module.php:
+    public function onBootstrap(MvcEvent $e)
+    {
+        $e->getApplication()->getServiceManager()->get('translator');
+        $eventManager        = $e->getApplication()->getEventManager();
+        $moduleRouteListener = new ModuleRouteListener();
+        $moduleRouteListener->attach($eventManager);
+        $eventManager->attach(MvcEvent::EVENT_DISPATCH,       [$this, 'onDispatch'], 100);
+        $eventManager->attach(MvcEvent::EVENT_DISPATCH_ERROR, [$this, 'onError'], 100);
+    }
+    
+	public function onError(MvcEvent $e)
+	{
+        // set categories
+        $this->onDispatch($e);
+		// get view model + set variable for categories
+        $viewModel = $e->getViewModel();
+        $viewModel->setTemplate('error/alt-error');
+        $viewModel->setVariable('message', '<h3>Hmmmm ... <br>we seem to have <br>encountered an error!</h3>');
+	}
+// view/error/alt-error.phtml
+<?= $this->partial('layout/layout', ['content' => $message, 'categories' => $categories]) ?>
+        
+Q: from Javier to All Participants: if you have 20 inputs in a form you would have to attach all the filters to apply per input?
+A: Still researching a global setting.  Otherwise, you could add a foreach() loop at the end of the 
+   buildFilters() method, something like this:
+    // globally apply StripTags and StringTrim
+    $tags = new Filter\StripTags();
+    $trim = new Filter\StringTrim();
+    foreach ($this->getInputs() as $input) {
+        $input->getFilterChain()->attach($tags)->attach($trim);
+    }
+   
+Q: Where do you set the expiration for CSRF?
+A: $Csrf->setCsrfValidatorOptions(['timeout' => 600]);
+   or $Csrf->setOption('csrf_options', ['timeout' => 600]); 
+
+Q: What are some other ways of creating and using input filters?
+A: You could use Zend\Form\Annotation\AnnotationBuilder, which lets you define filters and validators in "entity" classes
+   Also, in your Form class, you could implement Zend\InputFilter\InputProviderInterface and define 
+   getInputSpecification() (and for a Fieldset: getInputFilterSpecification())
+   See: http://framework.zend.com/manual/current/en/modules/zend.form.quick-start.html
+   Here's another:
+   You could create a top-level config key "input_filter_specs" and activate Zend\InputFilter\InputFilterAbstractServiceFactory
+   See: http://framework.zend.com/manual/current/en/modules/zend.input-filter.specs.html
+   
+Q: from Adam to All Participants: Question... Using Fieldsets for forms... whats the best way to style 
+   the fieldset template without having to recreate a span with data-template again for multiuse fieldsets 
+   (such adding multiple address to an addressbook) This has been something thats stumping me for a while 
+   not sure if anyone here would know? 
+A: In process
+
+Q: Please show an example of attaching a listener to the 1st module event
+A: In process
+
+Q: Can you provide alternate template_map config for each module without overwriting?
+   For example: logged in and logged out
+A: In process
+
+Q: Where are the default view helpers and controller plugins defined?
+A: In process
+
+Sue:        34 points
+Adam:       34 points
+Javier:     13 points
+Jean-Simon: 10 points
+Juan:        5 points
+Suyeb:       5 points
+Thomas:      5 points
+Andrew:     10 points
+
+SLIDES ERRATA:
+
+5-27: needs to be EVENT_DISPATCH not EVENT_BOOTSTRAP
+5-30: missing end }
+7-11: missing "may_terminate => FALSE" missing
+
+
+LAB ERRATA:
+
+NOTE: need to reset rights for onlinemarket.complete:
+sudo chown -R www-data:zend /workspace/onlinemarket.complete/*
+sudo chmod -R 775 /workspace/onlinemarket.complete/*
+
+Mod 3 Lab:
+Some students were unclear on A.4 and A.5 ... 
+had to point out that we won't give them every single command
+need to look at the documentation to find solutions
+
+Mod 6 Lab:
+B.7: should be the same as A.5
+C.I.5: code should be: <h1><?= $this->category ?></h1>
+
+Mod 9 Lab:
+A.III: remove steps 5 - 7 (these are out of place)
+
+
+zf2.unlikelysource.org
+zend@unlikelysource.com
+Password!2
+
+Registration Key: 3047bdbccf0bd24fe3f106fff9c65570
+
+RESOURCES:
+
+http://zendframework2.de/en/cheat-sheet.html
+http://framework.zend.com/manual/2.2/en/modules/zend.mvc.services.html
+http://www.michaelgallego.fr/blog/2013/01/21/some-tips-to-write-better-zend-framework-2-modules/
+
+BOOKS:
+Learn ZF2 by Slavei Karadjov (works for Zend)
+https://www.createspace.com/4342198 
+http://learnzf2.com
+
+WEBINAIRS:
+http://www.zend.com/en/resources/webinars/framework
+What's New in ZF2.2
+http://www.zend.com/en/company/news/event/1303_what-s-new-in-zend-framework-2-2
+ZF, Ext JS and noSQL, the perfect alchemy to build the next CMS generation:
+http://www.zend.com/en/webinar/Framework/70170000000c7lR-Rubedo-20130620.flv
+Writing Services with ZF2:
+http://www.zend.com/en/webinar/Framework/70170000000c3HC-Zf2WritingServiceComponents-20130502.flv
+Build RESTful ZF2 Applications:
+http://www.zend.com/en/webinar/Framework/70170000000c1Hw-RestfulZfApp-20130404.flv
+ZF2 for ZF1 Developers:
+http://www.zend.com/en/webinar/Framework/70170000000bwrT-ZF1forZF2Developers-20130226.flv
+Building Secure Web Applications with ZF2:
+http://www.zend.com/en/webinar/Framework/70170000000by7j-BSWAWZF2-20130123.flv
+ZendDb Usage in Architecting Models:
+http://www.zend.com/webinar/Framework/70170000000buFy-ZendDb-20121115.flv
+Being a Good OSS Contributor: Building MongoDB Adapters for Zend Framework 2:
+http://www.zend.com/webinar/Framework/70170000000btjy-MongoDB-ZF2-20121004.flv
+Working with ZF2's ZendForm:
+http://www.zend.com/webinar/Framework/70170000000btRI-ZF2-ZendForm-20120920.flv
+
+
+SLIDE NOTES:
+
+
+LAB NOTES:
+
+
+VM NOTES:
+How to release the mouse: CTRL + ALT
+Keyboard Settings:
+-- Top right - keyboard settings: click until the one you want shows up
+-- Right click and select Keyboard Preferences - Layouts for other choices
+Video Resolution:
+-- You'll need to install VMware Tools to get the video to adjust to your host computer
+VMware Tools:
+-- Open a terminal window (black screen icon top left)
+-- cd /home/zend/Downloads/vmware-tools/distrib
+-- Run the installer as a "root" user
+       sudo ./vmware-install.pl
+-- Answer the prompts (usually the defaults are OK -- just press ENTER to accept)
+-- Either shutdown and restart the VM (click on the icon extreme top left inside the VM)
+
+VM LAB NOTES:
+
+1. Check to make sure date.timezone is set in /usr/local/zend/etc/php.ini
+2. Need to erase all files in onlinemarket.complete/data/logs/*
+   (this allows the onlinemarket.complete app to start creating logs using its own permissions)
+3. Create a link so that php is available from the command line:
+   sudo ln -s /usr/local/zend/bin/php /usr/bin/php
+
+
+ZEND STUDIO (inside VM) NOTES:
+
+http://www.theartofjoomla.com/9-developer/136-making-the-most-out-of-code-assist-in-eclipsepdt-and-zend-studio-for-php.html
+
+// NOTE: this gets rid of the yellow lines + 
+// should make your "suggestions" come up OK
+
+1. Close the project
+2. Replace the file /workspace/onlinemarket.work/.buildpath with this:
+<?xml version="1.0" encoding="UTF-8"?>
+<buildpath>
+	<buildpathentry kind="con" path="com.zend.php.phpunit.CONTAINER"/>
+	<buildpathentry kind="con" path="org.eclipse.php.core.LANGUAGE"/>
+	<buildpathentry kind="con" path="org.zend.php.framework.v2.CONTAINER"/>
+</buildpath>
+3. Open the project
+4. Select "Project" - "Clean"
+
+
+MODULE 2 - (MVC LITE)
+
+The Skeleton Application installed on the VM uses the library located at /usr/local/zend/share/ZendFramework2/library 
+instead of at /workspace/onlinemarket.work/vendor/ZF2/library due to the way the autoload file is configured.
+
+MODULE 2 LAB NOTES:
+
+4. Make sure you reset filesystem permissions as follows:
+   sudo chmod -R 755 /workspace/*
+
+USING PHP FROM THE COMMAND LINE:
+
+sudo ln -s /usr/local/zend/bin/php /usr/bin/php
+password = "password"
+
+USING ZFTOOL.PHAR
+-- Open a terminal window
+-- cd /workspace
+-- wget https://packages.zendframework.com/zftool.phar
+-- php /path/to/zftool.phar etc.
+
+IMPORTING EXISTING PROJECTS INTO ZEND STUDIO
+-- Open a terminal window
+-- Open an existing project file by typing:
+   gedit /workspace/onlinemarket.start/.project
+-- In the file change "onlinemarket.start" to "onlinemarket.work"
+-- Select "Save As" and save the file as /workspace/onlinemarket.work/.project
+-- From Zend Studio select "File - Import - General - Existing Projects into Workspace - Next"
+-- For "Select root directory" enter "/workspace"
+-- You should see both "onlinemarket.start" and "onlinemarket.work" listed
+-- Click "Finish"
+
+zftool.phar requires PHP 5.3.3!!!
+https://github.com/zendframework/ZFTool/archive/master.zip
+
+Zend Skeleton App:
+https://github.com/zendframework/ZendSkeletonApplication
+
+ZF2:
+https://github.com/zendframework/zf2
+
+from Adam to All Participants:
+okay, removed zf2.ini restarte apache and working without any changes to index file. excellent.  thanks!
+from Francois to All Participants:
+put the full path in your note please: \usr\local\zend\ect\conf.d\zf2.ini
+
+MODULE 2 LAB TROUBLESHOOTING:
+
+from Maurice K - Zend to All Participants:
+http_proxy=http://username:password@hostname:port;
+   export $http_proxy
+
+(from a terminal window) sudo cat /usr/local/zend/var/log/php.log
+Also: add this line to /public/index.php:
+ini_set('display_errors', 1);
+
+Make sure you reset filesystem permissions as follows:
+sudo chmod -R 755 /workspace/*
+
+Q: What if I get the following error: "I cannot access the API of github."???
+A: #1 make sure your VM can connect to the Internet.  #2 simply try again over a span of several minutes.
+   If that doesn't work, download and unzip:
+   1. Download the Skeleton App from https://github.com/zendframework/ZendSkeletonApplication/archive/master.zip
+   2. Create a folder for the project: mkdir /workspace/onlinemarket.work
+   3. Click on "Places" on the top left menu bar, locate the downloaded skeleton app, and double click on it
+   4. Extract the contents into /workspace/onlinemarket.work
+   5. Download ZF2 from https://packages.zendframework.com
+   6. Locate the downloaded file an double click
+   7. Extract into /workspace/onlinemarket.work/vendor
+   8. Rename to folder to /workspace/onlinemarket.work/vendor/ZF2
+   9. Further documentation can be found at: http://framework.zend.com/downloads/skeleton-app
+
+Q: What if I get a blank screen?
+A: Look at the php log: sudo cat /usr/local/zend/var/log/php.log
+   If you see this error:
+PHP Fatal error:  Uncaught exception 'Zend\ServiceManager\Exception\InvalidArgumentException' with message 'Provided abstract factory must be the class name of an abstract factory or an instance of an AbstractFactoryInterface.' in /workspace/onlinemarket.work/vendor/ZF2/library/Zend/ServiceManager/ServiceManager.php
+   Proceed as follows:
+   1. Click on "Places" from the top menu bar on the left
+   2. Locate /workspace/onlinemarket.work/vendor
+   3. Remove the "ZF2" folder
+   4. Download ZF2 from https://packages.zendframework.com
+   5. Locate the downloaded file an double click
+   6. Extract into /workspace/onlinemarket.work/vendor
+   7. Rename to folder to /workspace/onlinemarket.work/vendor/ZF2
+
+Q: What if I can't get to the Internet?
+A: Make sure your host can connect to the Internet.
+   Make sure the VM can connect to the Internet:
+   Click on the network icon (top right, between the keyboard settings and the date)
+   Select "Auto eth0"
+
+Q: What if I get an error restarting Apache in the VM?
+"Starting web server: apache2[Fri Dec 20 09:03:11 2013] [crit] (EAI 9)Address family for hostname not supported: alloc_listener: failed to set up sockaddr for 127.0.0.1
+Syntax error on line 3 of /etc/apache2/sites-enabled/zendserver_gui.conf:
+Listen setup failed
+Action 'start' failed.
+The Apache error log may have more information.
+ failed!
+A: Check to see if the internet connection to your VM is working OK.  (See above)
+
+
+MODULE 3 (EVENT MANAGER)
+
+compact()
+ array compact ( mixed $varname [, mixed $... ] )
+
+Creates an array containing variables and their values.
+
+For each of these, compact() looks for a variable with that name in the current symbol table and adds it to the output array such that the variable name becomes the key and the contents of the variable become the value for that key. In short, it does the opposite of extract(). 
+
+NOTE: source code for EventManager::trigger() and EventManager::triggerUntil() is identical!
+
+Event Objects contain information pertaining to the event
+Event Managers can attach listeners and triggers events for that stage in the application request cycle
+
+Predefined Events:
+
+Zend\ModuleManager\ModuleEvent::
+  EVENT_LOAD_MODULE
+  EVENT_LOAD_MODULES
+  EVENT_LOAD_MODULES_POST
+  EVENT_LOAD_MODULE_RESOLVE
+  EVENT_MERGE_CONFIG
+
+Zend\Mvc\MvcEvent::
+  EVENT_BOOTSTRAP
+  EVENT_DISPATCH
+  EVENT_DISPATCH_ERROR
+  EVENT_FINISH
+  EVENT_RENDER
+  EVENT_RENDER_ERROR
+  EVENT_ROUTE
+
+Zend\View\ViewEvent::
+  EVENT_RENDERER
+  EVENT_RENDERER_POST
+  EVENT_RESPONSE
+
+Event Manager Usage Examples:
+zf2guestbook:
+Guestbook/Service/Entry.php
+-- NOTE: when "setServiceManager()" is defined, a listener is attached and is triggered when class is instantiated
+         same applies to "setEventManager()"
+-- Module.php::getServiceConfig() defines the "guestbook_entry_service" => "Guestbook\Service\Entry"
+-- Module.php::getServiceConfig() also defines a factory "guestbook_entry_form"
+
+Shared Event Manager:
+Use case: attach to an event for an object which may or may not exist
+zf2guestbook
+Application/Module.php
+-- defines shared event manager in onBootStrap() used with MVC to log incoming requests
+Other Examples:
+-- ExceptionEvents
+-- Zend\ModuleManager\Listener\OnBootstrapListener
+
+Identifiers:
+ZfcBase\EventManager\EventProvider::setEventManager()
+-- sets identifiers = __CLASS__ and get_called_class()
+
+Q: How are identifiers useful and how are they used?
+
+Identifiers are a way to create communication between an individual
+EventManager instance and the SharedEventManager. This allows you to
+connect a listener to an event without having direct access to the given
+EventManager instance or the object that composes it.
+
+As an example, consider the various view listeners in ZF2 itself. As an
+example, there's one that will take a returned array from a controller,
+and create a ViewModel out of it. This listens on the
+"Zend\Stdlib\DispatchableInterface" context -- which means that any
+object that defines that context will trigger that listener if it
+triggers the appropriate event.
+
+
+RE: Priority: 
+The higher the number, the higher the priority.
+*NEGATIVE* numbers are lowest priority; 1 is the default. So, given
+listeners with priorities of 1, 100, and -100, the order they're
+triggered is 100, 1, -100. Also, listeners registered at the *same*
+priority are triggered in the order in which they are registered.
+
+(This is how SplPriorityQueue works, which is the implementation we use
+under the hood in the EventManager.)
+
+RE: trigger() with a callback (4th parameter)
+The callback used with trigger() is used to test the return value of
+individual listeners; returning a boolean true value from this callback
+will halt execution of the event loop. The rationale can be seen in the
+MVC, where if a Response is detected as being returned from a listener,
+we halt execution of the event loop and return immediately. As an
+example:
+   
+    $results = $events->trigger('dispatch', $this, $mvcEvent, function ($result) {
+        if ($result instanceof Response) {
+            return true;
+        }
+    });
+    if ($results->stopped()) {
+        return $results->last(); // if we were halted due to the
+                                 // callback, return the last result now
+    }
+
+RE: Aggregates
+
+It's not "multiple listeners, one event," nor is
+it the case that triggering one event triggers all listeners in an
+aggregate. It's multiple listeners, one event manager. The code in an
+aggregate's attach() method might look something like this:
+
+    public function attach(EventManagerInterface $events)
+    {
+        $events->attach('route', array($this, 'onRoutePre'), 100);
+        $events->attach('route', array($this, 'onRoutePost'), -100);
+        $events->attach('dispatch', array($this, 'onDispatchPre'), 100);
+        $events->attach('dispatch', array($this, 'onDispatchPost'), -100);
+    }
+
+Note that two separate events are attached to, each with two separate listeners,
+at different priority.
+
+Basically, when you register an aggregate, you're letting the aggregate register
+multiple listeners, which simplifies the code the _consumer_ needs to write.
+Instead of the developer having to write:
+
+    $events->attach('route', array($aggregate, 'onRoutePre'), 100);
+    $events->attach('route', array($aggregate, 'onRoutePost'), -100);
+    $events->attach('dispatch', array($aggregate, 'onDispatchPre'), 100);
+    $events->attach('dispatch', array($aggregate, 'onDispatchPost'), -100);
+
+they can simply write:
+
+    $events->attach($aggregate);
+
+Second, regarding the SharedEventManager: it's NOT a singleton. Look at
+the code. It's an instantiable class. The StaticEventManager is a
+singleton _extension_ of SharedEventManager, and allows composing a
+SharedEventManager in order to provide a singleton instance of it. We do
+set the first SharedEventManager as the singleton StaticEventManager
+instance, but it's an implementation detail, and we do not encourage
+it's use; it's a method of last resort for accessing the shared event
+manager. There are two other ways to get at it, and you usually can use
+one of these:
+
+ * If you have access to the ServiceManager,
+   $services->get('SharedEventManager');
+ * If you have access to a class with a composed EventManager,
+   $object->getEventManager()->getSharedManager();
+
+Also, it's not necessary for the SharedEventManager to exist for the
+application to run. That said, it makes things much easier, as you don't
+need access to individual EM instances in order to register listeners.
+
+Finally, in the explanation of the "log" listener with the SEM, the
+reason this can work is actually due to the ability to use wildcard
+contexts and event names when attaching listeners:
+
+    $shared->attach('*', '*', $logListener, 1000);
+
+would register a listener to _every_ event in _every_ context, at high
+priority.
+
+MODULE 3 (EVENT MANAGER) LAB NOTES:
+
+To get the View Model use MvcEvent::getViewModel()
+
+LAB NOTES:
+
+#8: Replace "span" with "col-lg-"
+
+MODULE 4 (SERVICE MANAGER):
+
+MWOP says "An AbstractFactory is used when you want to create a single factory to
+handle a group of related object types. An example might be for handling
+plugins."
+
+ZF2.2: certain default abstract factories added: log, session, cache
+-- these look for high level keys (i.e. like the "db" key)
+-- "log" key, "session" key, etc.
+
+
+MODULE 4 (SERVICE MANAGER) LAB NOTES:
+
+barter
+beauty
+clothing
+computer
+entertainment
+free
+garden
+general
+health
+household
+phones
+property
+sporting
+tools
+transportation
+wanted
+
+NOTE: for step A.5: all categories should be *lowercase*!!!
+
+
+MODULE 5 (MVC and MODULES)
+
+from Ryan to All Participants:
+little resource: http://akrabat.com/zend-framework-2/a-list-of-zf2-events/
+PHP Explorer = left side pane of Zend Studio where you see the project file/folder structure
+
+Q: Which as priority if two keys are defined the same name in Module::getServiceConfig, 
+module.config.php => service_manager, or autoload/local.php?
+
+A: The order in which settings are integrated are as follows: 
+   (0) application.config.php
+   (1) Module.php
+   (2) module.config.php, 
+   (3) global/local override files
+   If there are duplicate keys, later settings will override earlier settings.
+   Test: zf2.unlikelysource.org/check
+
+DefaultListenerAggregate -- ModuleEvent::EVENT_LOAD_MODULE
+Attaches the following:
+
+Listener		Calls Module::XXX (if defined)
+------------		------------------------------
+InitTrigger		init(ModuleManager $mm)
+OnBootstrapListener	using shared event manager attaches Module::onBootStrap() to MvcEvent::EVENT_BOOTSTRAP
+AutoloaderListener	getAutoloaderConfig()		
+ConfigListener		getConfig()
+
+Module Events: Zend\ModuleManager\ModuleEvent
+ModuleEvent::EVENT_MODULES_LOAD = "loadModules"
+ModuleEvent::EVENT_MODULE_RESOLVE = "loadModule.resolve"
+ModuleEvent::EVENT_MODULE_LOAD = "loadModule"
+ModuleEvent::EVENT_MODULES_POST = "loadModules.post"
+
+Q: Is there a list of Module.php methods vs. config/module.config.php keys?
+
+A: Yes: http://framework.zend.com/manual/2.3/en/modules/zend.module-manager.module-manager.html
+   Also: see http://framework.zend.com/manual/2.2/en/tutorials/config.advanced.html
+
+   These include 'controllers' = getControllerConfig(), 'route_manager' = getRouteConfig(), 
+   'service_manager' = getServiceConfig(), 'view_helpers' = getViewHelperConfig(), etc.
+
+
+MODULE 5 (Modules) LAB NOTES:
+
+    IF YOU get an error:
+
+    Fatal error: Uncaught exception 'Zend\ModuleManager\Exception\RuntimeException' with message 'Module (Market) could not be initialized.'
+
+
+    RESET RIGHTS to 755:
+
+    chmod -R 755 /workspace/onlinemarket.work/module/Market
+
+    Make sure that the autoload_classmap.php file has the correct paths. If not, the module will fail to initialize
+    You might get better results using ZF2/bin/classmap_generator.php:
+
+    cd /workspace/onlinemarket.work/module/Market
+    php /workspace/onlinemarket.work/vendor/ZF2/bin/classmap_generator.php:
+       
+
+    If you get a 404 error, check to make sure you have not added an extra "/" in the URL in the browser!
+
+Errata
+
+Resources
+
+    Currently available ZF2 modules:
+    http://modules.zendframework.com/
+    Introducing the ZF2 ModuleManager:
+    http://www.zend.com/webinar/Framework/70170000000bti2-ZF2-ModuleManager-20121011.flv
+
+
+
+
+MODULE 6 (CONTROLLERS & PLUGINS)
+
+Redirection Using Response Object
+
+This is what the redirect() plugin does:
+    $response  = $this->getResponse();
+    $url = $this->url()->fromRoute('home'); // or some other defined route
+    $response->getHeaders()->addHeaderLine('Location', $url);
+    $response->setStatusCode(302);
+    return $response;
+
+MODULE 6 (CONTROLLERS & PLUGINS) LAB NOTES
+
+Module Specific Route:
+
+1. Add a param "module" => "name of module" under router => routes => xxx => options => defaults
+
+2. In the onBootstrap() method:
+    public function onBootstrap(MvcEvent $e)
+    {
+        $eventManager        = $e->getApplication()->getEventManager();
+        $moduleRouteListener = new ModuleRouteListener();
+        $moduleRouteListener->attach($eventManager);
+        $eventManager->attach(MvcEvent::EVENT_DISPATCH, array($this, 'modSpecific'), 100);
+    }
+    public function modSpecific(MvcEvent $e)
+    {
+    	$routeInfo = $e->getRouteMatch();
+    	if ($routeInfo->getParam('module') == 'market') {
+    		echo 'MARKET MODULE';
+    	}
+    }
+
+IF you get a message "Zend\Session\SessionManager ... session validation failed" ... 
+--> the session was started by the flashMessenger() plugin
+--> run "php composer.phar update"
+--> make sure you are using *at least* ZF2 version 2.3.2 
+--> it appears there was a problem in 2.3.1 re: starting the session and the flashMessenger plugin
+
+
+MODULE 7 (ROUTING)
+
+From Evan Coury:
+Segment routes use logic from Regex routes, but "abstract" the logic to make it easier to use
+Wildcard routes let you do things the ZF1 way ... but lead to practices which are NOT best practices
+
+LAB NOTES:
+7.A.2 The steps just above the table should be removed:
+	1. Open the PHP Explorer pane and select the newly renamed folders
+	2. Select Search | Search
+	3. In the File Search tab, enter the following info:
+7.C: in the table s/be "/market/post"
+7.5: note that there are now conflicting 'home' routes: one under Application and one under Market; this should be resolved before continuing
+
+
+MODULE 8 (VIEW)
+
+Slide 12: see zf2.unlikelysource.org/module/Application/Module.php
+
+Q: addRenderingStrategy() addResponseStrategy() -- from which object???
+A: Most likely the View object in the Module.php file.
+A: [MWOP] Not sure I understand the question. If the question is: where do I
+register these? I'd do it from an event listener. That listener will
+need access to the View service.
+
+As an example, consider the following methods from a Module class. They
+register a listener on the route event, to trigger after routing. That
+event listener then checks to see if the controller routed to matches
+the current namespace. If so, it pulls the service manager from the
+application, and the View instance from there. It then registers
+listeners on the View instance.
+
+    public function onBootstrap($e)
+    {
+        $app = $e->getTarget();
+        $app->getEventManager()->attach('route', array($this, 'onRoutePost', -100);
+    }
+
+    public function onRoutePost($	e)
+    {
+        $matches = $e->getRouteMatch();
+        $controller = $matches->getParam('controller');
+        $segments = explode('\\', $controller);
+        $namespace = array_shift($segments);
+        if ($namespace !== __NAMESPACE__) {
+            return;
+        }
+
+        $app = $e->getTarget();
+        $services = $app->getServiceManager();
+        $view     = $app->get('View');
+
+        $view->addRendererStrategy(array($this, 'onRenderer'), 100);
+        $view->addResponseStrategy(array($this, 'onResponse'), 100);
+    }
+
+    public function onRenderer(\Zend\View\ViewEvent $e)
+    {
+        /* ... */
+    }
+
+    public function onResponse(\Zend\View\ViewEvent $e)
+    {
+        /* ... */
+    }
+
+
+FROM Francois:
+Bonjour Doug,
+Sorry I did not send this yesterday; I had family over so I did not have
+time.
+
+Here is how I changed the layout for a specific namespace. I say namespace
+because even if you said in the class that we should not do it, in webinar
+from Matthew I hear that you can have multiple namespace in the same
+module. Also, if you have two module that share views with the same
+namespace it would change the layout as well. You could also (this is an
+extreme) have views in a folder with the same name from a different
+namespace if you set all of your templates in each action. So basically
+it's not even a namespace, it checks the folder name… Anyway, let get on
+with it. Please feel free to fix any problem you might see in my code.
+
+---------------------------------------------
+
+How I changed layout only for my market module.
+First, in onBootstrap method of module\Market\Module.php, attach a
+listener to the render event
+$eventManager->attach(MvcEvent::EVENT_RENDER, array($this, 'onRender'),
+9000);
+
+I called my listener onRender but it could be called anything you like,
+you could event have provided a closure function (anonymous function).
+This function will check the template that will be rendered and update the
+layout if needed.
+
+My listener function is just this:
+
+public function onRender(MvcEvent $e)
+{
+        $viewModel = null;
+        // get the layout from the event
+        $layout = $e->getViewModel();
+        $children = $layout->getChildren();
+        // 99% of the time the default viewModel returned by the controller
+        // will be the first child ($children[0]) but to make sure, I look
+        // for the child capturing to 'content'
+        foreach($children as $child) {
+                if($child->captureTo() == 'content') {
+                        $viewModel = $child;
+                        break;
+                }
+        }
+
+        // you might want to do something special if no viewModel was found
+        if($viewModel instanceof \Zend\View\Model\ViewModel) {
+                // check if the template that will be render is in the namespace
+                // if it is in that namepsace change the layout
+                if(strpos($viewModel->getTemplate(), 'market/') === 0) {
+                        // this new layout is located in this module's view folder
+                        // in this case module/Market/view/layout/market.phtml
+                        $layout->setTemplate('layout/market.phtml');
+                }
+        }
+}
+
+
+Next you have to make sure you create the layout template. To make it
+easy, you can copy the existing layout from
+module/Application/view/layout/layout.phtml and paste it as
+module/Market/view/layout/market.phtml (or whatever you called it). Make
+some change to that new file, for example write and <h1> with "Market
+template" as the first thing after the body.
+To test just open the browser and go to onlinemarket.work/market, any
+route that render a market template will use that new layout, this
+includes the home page (/) since we changed the home route to the market
+module in module 7. To see the original layout you can go to
+onlinemarket.work/application, the original layout should be displayed.
+
+This would be useful to change the layout for the administration part of
+the site or have "beta" modules displayed as such.
+
+
+
+
+MODULE 9 (FORMS / FILTERS / VALIDATORS)
+
+ZF2.2: added new hydrator: "Aggregate Hydrator": allows specialized mapping of object types to hydrators; event driven
+Example: Doctrine: attach single hydrator to parent object; Aggregate Hydrator makes sure all child objects are hydrated or extracted
+
+Don't forget: there are additional filter/validator classes under Zend\I18n
+
+Might want to use Search\Form\SearchForm and SearchFormFilter as a basis for the PostForm and PostFormFilter
+
+echo $this->formCollection($form); // added after ZF 2.1; renders entire form in 1 command
+
+Image CAPTCHA Notes
+doug@unlikelysource.com : 2013-06-27 11:54:15
+
+// config/autoload/global.php
+<?php
+return array(
+	// See http://framework.zend.com/manual/2.2/en/modules/zend.captcha.adapters.html
+  'service_manager' => array(
+    'services' => array(
+      'captchaOptions' => array(
+    	'expiration' => 300,
+    	'font'		=> '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+    	'fontSize'	=> 24,
+    	'height'	=> 50,
+    	'width'		=> 200,
+    	'imgDir'	=> __DIR__ . '/../../public/captcha',
+    	'imgUrl'	=> '/captcha',    	
+      ),
+    ),
+  ),
+);
+
+// PostFormFactory
+
+     $form = new Market\Form\PostForm($serviceManager->get('captchaOptions'));
+     return $form;
+     
+// Market\Form\PostForm($captchaOptions)
+		$captcha = new Element\Captcha('captcha');
+		$captchaAdapter = new Captcha\Image();
+		$captchaAdapter->setWordlen(4)
+					   ->setOptions($captchaOptions);		
+		$captcha->setCaptcha($captchaAdapter)
+				->setLabel('Help us to prevent SPAM!')
+				->setAttribute('class', 'captchaStyle')
+			    ->setAttribute('title', 'Help to prevent SPAM');
+
+Q: How do you echo the entire form at once?
+A: echo $this->formCollection($form);
+
+$date = new DateTime('2000-01-01');
+$date->add(new DateInterval('P10D'));
+echo $date->format('Y-m-d') . "\n";
+
+MODULE 9 (Forms) LAB NOTES:
+
+    Might want to use Search\Form\SearchForm and SearchFormFilter as a basis for the PostForm and PostFormFilter
+    Echo the entire form at once:
+
+    echo $this->formCollection($form); // added after ZF 2.1
+
+Image CAPTCHA Notes
+
+// config/autoload/global.php
+<?php
+return array(
+	// See http://framework.zend.com/manual/2.2/en/modules/zend.captcha.adapters.html
+    'captchaOptions' => array(
+    	'expiration' => 300,
+    	'font'		=> '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+    	'fontSize'	=> 24,
+    	'height'	=> 50,
+    	'width'		=> 200,
+    	'imgDir'	=> __DIR__ . '/../../public/captcha',
+    	'imgUrl'	=> '/captcha',    	
+    ),
+);
+
+// Market\Form\PostForm
+		$captcha = new Element\Captcha('captcha');
+		$captchaAdapter = new Captcha\Image();
+		$captchaAdapter->setWordlen(4)
+					   ->setOptions($captchaOptions);		
+		$captcha->setCaptcha($captchaAdapter)
+				->setLabel('Help us to prevent SPAM!')
+				->setAttribute('class', 'captchaStyle')
+			    ->setAttribute('title', 'Help to prevent SPAM');
+
+Resources
+Working with ZF2's ZendForm:
+http://www.zend.com/webinar/Framework/70170000000btRI-ZF2-ZendForm-20120920.flv
+
+
+
+MODULE 10 (DATABASE)
+
+$select->join(
+     'foo' 			// table name,
+     'id = bar.id', 		// expression to join on (will be quoted by platform object before insertion),
+     array('bar', 'baz'), 	// (optional) list of columns, same requiremetns as columns() above
+     $select::JOIN_OUTER 	// (optional), one of inner, outer, left, right also represented by constants in the API
+);
+
+
+Q: How can you do things like create or alter table using Zend\Db\Sql?
+A: Use classes under Zend\Db\Sql\Ddl.
+   See http://framework.zend.com/manual/2.2/en/modules/zend.db.sql.ddl.html
+
+
+Q & A
+---------------------------------------------------------------------------------------------------------
+
+Q: Examples of using a hydrator with a class
+A: ZfcBase\Mapper\AbstractDbMapper
+
+Q: How do you do a redirect from Module.php
+A: 
+$response = new \Zend\Http\PhpEnvironment\Response();        
+$response->getHeaders()->addHeaderLine('Location', $url);        
+$response->setStatusCode(302);        
+return $response;
+
+Q: Does it mean that an unshared service will return a NEW instance each time you access it using get()?
+A: Shared services are added to a property ServiceManager::$instances
+   When a shared service is retrieved via get(), it looks into $instances[] first, otherwise creates and stores into $instances[]
+   If not shared, or if sharedByDefault == FALSE, returns a unique instance (which is *not* stored in $instances)
+   See: Zend\ServiceManager\ServiceManager.php::get()
+
+Q: guestbook/service\entry --> where are the events attached?
+A: add.post is attached in GuestbookNotification\Module::onBootstrap()
+
+Q: For now there are there a lot of the concepts inside my head. I would like to ask to have some real world problems, or use cases, that can be implemented using all these concepts, is that possible?
+A: Real world examples will have to wait until after we discuss Services and MVC
+A: Have a look at vendor/ZendFramework/library/Zend/Mvc/Application.php::bootstrap()
+   Attaching Listeners: RouteListener, DispatchListener, and ViewManager
+   Triggering Events: MvcEvent::EVENT_BOOTSTRAP; see also run()
+A: Another example:
+   1. Zend\Mvc\RouteListener::attachs the "onRoute" callback to an EVENT_ROUTE event
+   2. Zend\Mvc\Application::run() triggers EVENT_ROUTE
+   3. Zend\Mvc\RouteListener::onRoute() handles the event
+
+Q: Where do you get the Zend Skeleton App?
+A: https://github.com/zendframework/ZendSkeletonApplication
+
+Q: Why AbstractController or AbstractActionController?
+A: AbstractActionController extends AbstractController
+   AbstractController is used by other controller classes, e.g. AbstractRestfulController
+   see: https://github.com/zendframework/zf2/blob/master/library/Zend/Mvc/Controller/AbstractRestfulController.php
+
+Q: What is the order of the module level listeners?
+A: From "DefaultListenerAggregate" :
+
+Listener		Module.php method		Interface (Zend\ModuleManager\Feature\*)
+--------		-----------------		----------------------------------------
+AutoloaderListener	getAutoloaderConfig()		AutoloaderProviderInterface
+ConfigListener		getConfig()			ConfigProviderInterface
+InitTrigger		init()				InitProviderInterface
+
+
+Q: Zend\ModuleManager\ModuleManager::__construct() calls setEventManager() which then calls attachDefaultListeners(), but where are the default listeners actually attached?
+
+A: [MWOP] The default listeners are attached in the ModuleManager factory,
+Zend\Mvc\Service\ModuleManagerFactory. Technically, they're attached via
+the Zend\ModuleManager\Listener\DefaultListenerAggregate, which is
+attached to the MM's event manager instance within that factory.
+
+Q: Slide 2-8: What events do these listen to?
+A: see Zend\ModuleManager\ModuleManager::attachDefaultListeners()
+   The "loadModules" event:
+    protected function attachDefaultListeners()
+    {
+        $events = $this->getEventManager();
+        $events->attach(ModuleEvent::EVENT_LOAD_MODULES, array($this, 'onLoadModules'));
+    }
+
+Q: Test not tests, view or views???  Code should follow recommended coding standards.
+A: http://framework.zend.com/manual/2.0/en/modules/zend.mvc.intro.html
+
+Q: $event->trigger(x, y, z, callback) -- when would you define callback?
+A: If you want "trigger" to behave as "triggerUntil()".  Keeps triggering until callback returns TRUE.
+
+Q: Are there any concrete examples of using module level /public assets???
+A: [MWOP] http://mwop.net/blog/why-conventions-matter.html
+
+Also, https://github.com/RWOverdijk/AssetManager is a module for
+managing those assets and pushing them into the document root.
+
+Q: what about validating array values? what if i have $_POST['users'][1]['email']?
+A: from Manuel to All Participants: ??? maybe:
+> form collections would be validated on per collection element basis
+> For such things i recommend >
+> http://www.michaelgallego.fr/blog/2012/07/04/new-zendform-features-explained/
+
+That's exactly the document I'd recommend. Interestingly, Michael
+allowed us to adapt that for the manual.
+
+Q: Are there any code examples of using identifiers with EventManager? How are identifiers useful and how are they used?
+
+A: Identifiers are a way to create communication between an individual
+EventManager instance and the SharedEventManager. This allows you to
+connect a listener to an event without having direct access to the given
+EventManager instance or the object that composes it.
+
+As an example, consider the various view listeners in ZF2 itself. As an
+example, there's one that will take a returned array from a controller,
+and create a ViewModel out of it. This listens on the
+"Zend\Stdlib\DispatchableInterface" context -- which means that any
+object that defines that context will trigger that listener if it
+triggers the appropriate event.
+
+Q: Examples of service manager initializers?
+A: Initializers are run after the service is created (i.e. an init() method)
+   See: Zend\ServiceManager\ServiceManager.php::get() and create()
+   -- Are called after instance is created
+   See: ZfcBase\Mapper\AbstractDbMapper::initialize()
+   -- this is an example of a method which is called after the service instance is created in ServiceManager::create()
+
+Q: Are there any code examples of using initializers with ServiceManager? It is clear that initializers are useful ... but exactly how are they used?
+A: [MWOP] In ZF2 itself, we do it for two things immediately:
+
+ * Any class that implements Zend\ServiceManager\ServiceLocatorAwareInterface
+   will be injected with the ServiceManager instance, via an initializer.
+ * Any class that implements Zend\EventManager\EventManagerAwareInterface
+   will be injected with an EventManager instance, via an initializer.
+
+Q: from Paul to All Participants: re: events: do aggregate results get passed around in $context or $params?
+A: No. No listener is aware of the results of a previous listener, unless
+that listener expressly injects the result into the event.
+
+Q: When exactly would you use a listener aggregate?  Can you show me a code example?
+A: [MWOP] Let's say I have a class that has some sort of state, and has multiple
+methods that can act as listeners on different events. Instead of having
+to do this:
+
+    $events->attach('some.event', array($object, 'onSomeEvent'));
+    $events->attach('other.event', array($object, 'onOtherEvent'));
+
+You can instead implement ListenerAggregateInterface, and simply do
+this:
+
+    $events->attach($object);
+
+and have the object manage the various attach() calls internally.
+
+There are a few such aggregates in the Zend\Mvc namespace, as well as
+Zend\Form\Annotation.
+
+Q: Are there any Zend\Db adapters for Oracle???
+A: Yes: available as of ZF 2.1
+
+Q: Okay, so if the service key is camelCase, then directories can be camelCase as well ... or do we have to use the "-" syntax?
+A: [MWOP] Service keys are case insensitive, and, further, strip out non alpha-numeric characters. 
+They have nothing to do with the name of directories nor the name of classes; they're completely arbitrary.
+
+I'm assuming that the question is related to how _view_ directories are
+named. We came up with a convention of having those match a normalized
+module name, normalized controller name, and normalized action name. The
+rationale is to make them as compatible as possible with multiple
+scripting engines.
+
+Q: Now all this is all event driven.. does the eventmanager have some kind of console log for debug?
+A: [MWOP] Not by default -- but you can enable one quite easily:
+
+    $sharedEvents->attach('*', '*', function ($e) use ($logger) {
+        $normalized = array();
+        foreach ($e->getParams() as $key => $value) {
+            if (!is_object($value)) {
+                $normalized[$key] = $value;
+                continue;
+            }
+            $normalized[$key] = 'Class of type "' . get_class($value) .  '"';
+        }
+        $data = json_encode(array(
+            'event'  => $e->getName(),
+            'target' => get_class($e->getTarget()),
+            'params' => $normalized,
+        ));
+        $logger->log($data);
+    });
+
+Q: What is the order of these listeners?  What events do these listen to?
+
+A: 
+>
+> Listener        	Module.php method        Interface (Zend\ModuleManager\Feature\*)
+> --------        	-----------------        ----------------------------------------
+> AutoloaderListener    getAutoloaderConfig()    AutoloaderProviderInterface
+> ConfigListener        getConfig()            	 ConfigProviderInterface
+> InitTrigger        	init()                	 InitProviderInterface
+> DefaultListenerAggregate
+
+[MWOP] All of the above listen to the "loadModule" event. The
+AutoloaderListener and ConfigListener are registered earliest, ensuring
+that init and onBootstrap listeners have autoloading enabled for their
+respective modules.
+
+Q: What is the DefaultListenerAggregate?  What is it used for?
+A: It defines and wires the default ModuleManager listeners to utilize.
+These include:
+
+ * ModuleLoaderListener
+ * ModuleResolverListener
+ * AutoloaderListener
+ * InitTrigger
+ * OnBootstrapListener
+ * LocatorRegistrationListener
+ * ConfigListener
+
+The first two are around autoloading and instantiating individual Module
+classes as configured in the application. The next three, and the last
+one, we cover in the course. The LocatorRegistrationListener looks for
+modules that are marked with the LocatorRegisteredInterface; when found,
+a service will be registered in the service manager with the Module
+class name, pointing to the module instance. (This is a nice way to
+share module-specific configuration between controllers in a module.)
+
+Q: view or views???  Code should follow recommended
+A: from Roman to All Participants:
+http://framework.zend.com/manual/2.0/en/modules/zend.mvc.intro.html
+
+Q: RE: directory naming convention, why should we use "test" but not "tests"?
+A: [MWOP] We decided that for consistency, we would name all directories in a
+module in the singular: config, public, test, view, etc. This is a
+departure from ZF1, where most, but not all, were in the plural. It's
+really an arbitrary point; you can name them however you want, as it's
+up to you to tell the MVC where to find things. We simply went one
+specific direction in the recommended structure.
+
+Q: $event->trigger(x, y, z, callback) -- when would you define callback?
+A: [MWOP] The callback used with trigger() is used to test the return value of
+individual listeners; returning a boolean true value from this callback
+will halt execution of the event loop. The rationale can be seen in the
+MVC, where if a Response is detected as being returned from a listener,
+we halt execution of the event loop and return immediately. As an
+example:
+   
+    $results = $events->trigger('dispatch', $this, $mvcEvent, function ($result) {
+        if ($result instanceof Response) {
+            return true;
+        }
+    });
+    if ($results->stopped()) {
+        return $results->last(); // if we were halted due to the
+                                 // callback, return the last result now
+    }
+
+
+Q: Are there multiple module managers or is there only one as a singleton?  When is the module manager created?
+A: [MWOP] In the default ZF2 implementation, there's only one module manager, but
+it's not a singleton. The instance is retrieved from the ServiceManager
+as part of Application::init(), and this is also when loadModules() is
+called. Because it is a shared instance, pulling it out of the
+ServiceManager ensures you get the same instance each time.
+
+If you don't use Application::init(), you either have to pull it from
+the ServiceManager yourself, or instantiate it yourself.
+
+Q: Do you have any examples of an Abstract_Factory service?
+A: [MWOP] An AbstractFactory is used when you want to create a single factory to
+handle a group of related object types. An example might be for handling
+plugins:
+
+    class PluginAbstractFactory implements AbstractFactoryInterface
+    {
+        protected $plugins = array(
+            'foo',
+            'bar',
+            'baz',
+        );
+
+        public function canCreateServiceWithName(ServiceLocatorInterface $services, $name, $requestedName)
+        {
+            return in_array($requestedName, $this->plugins);
+        }
+
+        public function createServiceWithName(ServiceLocatorInterface $services, $name, $requestedName)
+        {
+            if (!in_array($requestedName, $this->plugins)) {
+                throw new ServiceNotFoundException();
+            }
+
+            $class   = __NAMESPACE__ . '\\' . ucfirst($requestedName) .  'Plugin';
+            $manager = $services->get('PersistenceManager');
+            $plugin  = new $class($manager);
+            return $plugin;
+        }
+    }
+
+The basic idea is that it can handle creation of a group of related
+objects, and might need to automatically inject dependencies as part of
+creation.
+
+Q: Why group listeners?
+A: [MWOP] Because they may require access to stateful information that should be
+shared across several listeners. As an example, the RouteNotFound
+composes configuration values that come into play in multiple listener
+end points, and are thus used to shape the view selected and what values
+are passed to it via the ViewModel.
+
+In other cases, the listeners may be related to a given context, and,
+while they do not share state, grouping them in a single class is
+logical, and makes attaching the listeners much more convenient; for
+good exmples look at Zend\Form\Annotation\FormAnnotationsListener and
+ElementAnnotationsListener.
+
+Q: How do you do a redirect from Module.php?
+A: [MWOP] Depends on what you're trying to accomplish. If you register a listener
+to any of the "route" or "dispatch" events, or to a "dispatch" event on
+the "Zend\Stdlib\DispatchableInterface" shared context, you can initiate
+a redirect by returning a response that has a 301 or 302 header with a
+Location header value set. As such, you'd do the above in a listener
+callback.
+
+Q: How do you register a custom view helper?
+A: $instanceOfHelper = new My_New_Helper();
+   $view->getBroker()->register('helper', $instanceOfHelper);
+A: In the module.config.php file:
+   'view_helpers' => ['invokables' => 'Class\Name\Of\Helper']
+
+Q: Do you have any examples of custom view helpers?
+A: See the following for several view helpers:
+
+    https://github.com/weierophinney/PhlyPaste/tree/master/src/PhlyPaste/View
+
+and this for how they are registered in that module:
+
+    https://github.com/weierophinney/PhlyPaste/blob/master/config/module.config.php#L44-50
+
+Q: In module.config.php, why have a separate "controllers" key, why not use "service_manager"?
+A: [MWOP] If you were to define a route that allowed specifying the controller
+dynamically, such as this:
+
+    'route' => '/foo/:controller/:action'
+
+and we defined controllers in the application service manager instance,
+that means an attacker could substitute any service name they wanted,
+and the service would be retrieved. This has a number of security
+implications:
+
+ * If the service has any side effects from the constructor or methods
+   called in a factory, these would be triggered.
+ * If the "controller" retrieved does not implement the
+   DispatchableInterface, we get notified late -- which leads to a
+   potential DoS attack.
+
+As such, our security team decided that we should err on the side of
+explicitness, and pull controllers from an isolated plugin manager. This
+allows us to err early when an unknown service is specified, as well as
+raise a context-specific exception when the service retrieved does not
+implement the required interface.
+
+ALSO:
+The "controllers" configuration is for a specialized service manager
+instance dedicated to controllers. It is *not* part of the service
+manager at all; however, it *composes* the main service manager
+instance.
+
+The reason it is separate is as a security measure. Since many
+developers create routes allowing specifying the controller name via URL
+(e.g., segment routes with a ":controller" segment), there's a potential
+problem: if the controller name matches an existing service, but that
+service is not a controller, or that service has side effects that occur
+during initialization, we open the door for DoS vectors and other
+attacks on our system.
+
+By moving the controller initialization into a plugin manager, we can
+ensure that if the controller requested does not have a match in the
+plugin manager, we will not try and load it (basically, we are using a
+whitelist approach; the controller must be in the set of services the
+controller manager defines); additionally, we can ensure that if the
+controller loaded is not a valid controller, we raise an exception
+early.
+
+Because the SM is composed into the controller manager,
+we can still access other services for purpose of injection; this can be
+done as follows:
+
+    function ($controllers) {
+        $services = $controllers->getServiceLocator();
+        $foo      = $services->get('foo');
+
+        $controller = new Controller\SomeController;
+        $controller->setFoo($foo);
+        return $controller;
+    }
+
+Note how I use semantically named arguments -- when I write a service
+factory for returning a controller, I name the ServiceLocatorInterface
+argument "$controllers", so that I know that this is not the main
+service manager. I do the same with view helpers ("$helpers") and
+controller plugins ("$plugins"). I've found that when I use this in
+examples, it also helps clarify the relationship between plugin manager
+instances and the service manager.
+
+SplAutoloader is an interface in Zend\Loader -- it's not a PHP interface
+or class (full name is Zend\Loader\SplAutoloader). It's a ZF2 interface
+that describes a class that provides autoloading that will be queued
+with spl_autoload_register().
+
+
+Q: In config_glob_paths what does the wildcard markup mean ex: {,*.}
+A: It meas no chars or all chars . global or local .php
+
+Q: If you want a REST controller, do you subclass Abstract Controller or RestController
+A: Use AbstractRestfulController
+
+Q: Database lab: SQLSTATE error file not found
+A: first, try changing db host to 127.0.0.1
+if that doesn't work, do this:
+ln -s /var/run/mysql/mysqld.sock /tmp/mysql.sock
+See: http://stackoverflow.com/questions/1819592/error-when-connecting-to-mysql-using-php-pdo
+
+Q: Do the templates have to be within the module? or could you have something global?
+A: Templates, or view scripts, are module specific
+
+Q: What gets returned in an event listener callback when you say $e->getTarget()?
+A: Whatever was the "context" when the event is triggered
+
+Q: Can you trigger multiple actions ** in a single dispatch?
+A: No.  
+   Zend\Mvc\AbstractController::dispatch() dispatches a single Request only (not an array)
+   Zend\Mvc\Controller\Plugin\Forward::dispatch() dispatches a controller represented by its name in the form of a string (not an array)
+
+Q: Why does the database lab test solution use this syntax: $this->MessagesTable->delete(function() {});
+A: $table->delete() has a mandatory parameter which can be any of:
+   Where|\Closure|string|array $where
+A: You could also use $this->MessagesTable->delete(TRUE);
+
+Q: What is the use for Zend\Db\TableGateway\Feature\GlobalAdapterFeature::setStaticAdapter($adapter)?
+A: This is an alternate approach to setting the adapter as a service.
+   Use Zend\Db\TableGateway\Feature\GlobalAdapterFeature::getStaticAdapter()
+   to return an instance when constructing tables, etc.
+
+Q: Can you send a sql string into the sql object?
+A: No -- the Zend\Db\Sql\Sql object is for SQL abstraction; internally,
+it's storing a tokenized expression that is then rendered as SQL.
+
+You _can_ use the Expression object, however, for segments where you
+want to provide literal SQL expressions inside your Sql instance.
+
+Q: Is there documention on service keys?
+A: Yes:
+
+    http://framework.zend.com/manual/2.0/en/modules/zend.service-manager.quick-start.html#using-configuration
+
+
+Q: How would you build these SQL statements using Zend\Db\Sql\Select: "SELECT title FROM albums WHERE id IN(SELECT DISTINCT id FROM notfoundlog);" and "SELECT colA,colB FROM tableA WHERE tableA.colA = (SELECT max(colC) FROM tableB)"?
+
+A: 
+SELECT title FROM albums WHERE id IN(SELECT DISTINCT id FROM notfoundlog);
+SELECT colA,colB FROM tableA WHERE tableA.colA = (SELECT max(colC) FROM tableB)
+
+[MWOP] This is really asking about two features not covered in the DB module.
+
+The first is expressions, the second, subselects.
+
+Expressions are simple: you instantiate a Zend\Db\Sql\Expression object,
+passing the expression as the first parameter, and any necessary
+placeholder parameters as the second. You can then use this as an
+argument to basically any method. In the above, we pass this as a
+column.
+
+Subselects are also simple: you grab a Select object off your Sql
+container, create the statement, and then pass it as an argument to the
+requisite method. In each of the above, we simply pass the Select to a
+method of the Where object.
+
+For the first:
+    $select    = $sql->select();
+    $select->from('albums')->columns(array('title'));
+
+    $subSelect = $sql->select();
+    $subSelect->from('notfoundlog')
+    $expr = new Expression('DISTINCT id');
+    $subSelect->columns(array($expr));
+
+    $where = new Where;
+    $where->in($subSelect);
+
+    $select->where($where);
+
+For the second:
+
+    $select = $sql->select();
+    $select->from('tableA')->columns(array('colA', 'colB'));
+
+    $subSelect = $sql->select();
+    $subSelect->from('tableB')->columns(array(new Expression('MAX(colC)')));
+
+    $where = new Where;
+    $where->equals('colA', $subSelect);
+    $select->where($where);
+
+Q: Just to clarify the scope of a local event manager: is it confined to the scope of a given module?
+A: [MWOP] No -- confined to the scope of the given object instance. You can break
+out of that scope by providing the EventManager instance with
+identifiers and a SharedEventManager instance (the latter happens by
+default if the EM instance was injected via the ServiceManager).
+
+Q: Does Zend\Db\Sql\Sql query the database to find out how to quote the columns?
+A: No -- it uses the Platform object from the composed Adapter instance.
+Each Platform object contains the rules for quoting -- which means no
+round trips to the database are necessary until you actually execute a
+query.
+
+Q: Can you still render to named segments?
+A: [MWOP] Named segments were a property of the response object in ZF1. To achieve
+similar functionality in ZF2, you would assign a name to a ViewModel's
+captureTo() method, which will capture that templates contents to that
+named variable of the parent ViewModel instance.
+
+Q: How do you set an alternate strategy?
+A: addRendererStrategy() and addReponseStrategy()
+   Also, vis a vis MVC, just return a different model (i.e. ViewModel, JsonModel, FeedModel, etc.)
+
+Q: How to set a view rendering strategy?
+A: 1 technique is to simply return different models
+   e.g. if you return ViewModel => phprenderer is used
+   but if you return JsonModel => jsonrenderer is used
+A: Otherwise ...
+Go to module config and add:
+view_manager => strategies => array('ViewJsonStrategy')
+
+Q: Do you have to use addRenderStrategy for json or can you just return a jsonmodel?
+A: [MWOP] You need to have the JsonStrategy registered; otherwise, even for a JsonModel, 
+   it will default to using the PhpRenderer.
+
+Q: addRendererStrategy() addResponseStrategy() -- from which object???
+A: [MWOP] Not sure I understand the question. If the question is: where do I
+register these? I'd do it from an event listener. That listener will
+need access to the View service.
+
+As an example, consider the following methods from a Module class. They
+register a listener on the route event, to trigger after routing. That
+event listener then checks to see if the controller routed to matches
+the current namespace. If so, it pulls the service manager from the
+application, and the View instance from there. It then registers
+listeners on the View instance.
+
+    public function onBootstrap($e)
+    {
+        $app = $e->getTarget();
+        $app->getEventManager()->attach('route', array($this, 'onRoutePost', -100);
+    }
+
+    public function onRoutePost($e)
+    {
+        $matches = $e->getRouteMatch();
+        $controller = $matches->getParam('controller');
+        $segments = explode('\\', $controller);
+        $namespace = array_shift($segments);
+        if ($namespace !== __NAMESPACE__) {
+            return;
+        }
+
+        $app = $e->getTarget();
+        $services = $app->getServiceManager();
+        $view     = $app->get('View');
+
+        $view->addRendereringStrategy(array($this, 'onRenderer'), 100);
+        $view->addResponseStrategy(array($this, 'onResponse'), 100);
+    }
+
+    public function onRenderer(\Zend\View\ViewEvent $e)
+    {
+        /* ... */
+    }
+
+    public function onResponse(\Zend\View\ViewEvent $e)
+    {
+        /* ... */
+    }
+
+Q: what's the diff between Zend\View\Strategy\PhpRendererStrategy vs. Zend\View\Renderer\PhpRenderer, Zend\View\Strategy\JsonStrategy vs. Zend\View\Renderer\JsonRenderer, etc.?
+A: The PhpRendererStrategy is simply a ListenerAggregate that _composes_
+the PhpRenderer. Its "renderer" listener method returns the PhpRenderer
+instance. Its "response" listener assigns the result of rendering to the
+response body.
+
+The JsonStrategy is similar; it composes the JsonRenderer. Its
+"renderer" listener returns the JsonRenderer only if the ViewModel in
+the event is a JsonModel. Its "response" listener sets the response
+"Content-Type" header to either "application/json", or, if the JsonModel
+reports that it is a JSONP callback, "application/javascript".
+
+So, the Renderer objects are implementations of RendererInterface. The
+Strategy objects are listeners on the View events, and are used to
+select which Renderer is used, as well as how to populate the Response
+object.
+
+Q: Can you override the rendering strategy (you want to allow for a client not setting the proper headers)?
+A: [MWOP] Yes. In fact, starting in 2.0.4 (next week), the Rendering strategies
+will only trigger if the ViewModel is of the appropriate type (JsonModel
+or FeedModel). Any Accept-header negotiation will occur in a new
+controller plugin, acceptedViewModel(), to which you provide the Accept
+header mime-types that will return specific ViewModel types. As such,
+you'll have much greater control.
+
+Yes. That said, we're moving away from that for 2.1. The reason is that
+enabling these strategies by default means that somebody can request
+_any_ route using the Accept header and get back either a JSON or
+Atom/RSS response -- which in most cases is likely undesirable, as there
+may be elements in the view that are not intended for rendering. It'd be
+an easy way to create a DoS attach on a site (as some of those view
+variables might lead to exceptions being raised in alternate renderers).
+
+As such, we're developing a controller plugin that can be used to
+selectively enable the appropriate renderer based on criteria you set --
+such as Accept header, a route parameter, etc.
+
+Q: How can you turn off layout/layout?
+A: I'm assuming they're asking how to disable layouts for a given request.
+
+That can be done by marking the view model from the action as "terminal"
+(indicating this will be the "root" at which we render):
+
+    $viewModel = new ViewModel();
+    $viewModel->setTerminal(true);
+
+Q: from Vitaliy to All Participants: how to set up a specific layout for a particular view?
+A: From a controller use the "layout()" controller plugin:
+   $layout = $this->layout();
+   $layout->setTemplate('alternate/layout');
+A: You can also do this in Module.php:
+class Module
+{
+    public function onBootstrap($e)
+    {
+        // Register a dispatch event
+        $app = $e->getParam('application');
+        $app->getEventManager()->attach('dispatch', array($this, 'setLayout'));
+    }
+
+    public function setLayout($e)
+    {
+        $matches    = $e->getRouteMatch();
+        $controller = $matches->getParam('controller');
+        if (false !== strpos($controller, __NAMESPACE__)) {
+            // not a controller from this module
+            return;
+        }
+
+        // Set the layout template
+        $viewModel = $e->getViewModel();
+        $viewModel->setTemplate('content/layout');
+    }
+}
+A: To turn off the layout: from a controller: explicitly create and return a view model from your controller, 
+   and mark it as “terminal”, which will hint to the MVC listener that normally injects the returned View Model 
+   into the layout View Model, to instead replace the layout view model:
+   $viewModel->setTerminal(TRUE);
+
+Q: Is the ViewModel used by the layout the same as the one returned by an MVC controller action?
+A: No.  The ViewModel used by the layout is called the "root" or "layout" ViewModel, and is 
+   automatically generated when the MVC layer is initialized.  You can access this from a Module.php file by 
+   attaching a listener to an MVC event (i.e. "dispatch") and then using the Service Manager to get the "View" service.
+   You can access this from a controller invoking the "layout()" plugin with no parameters.
+   See: http://framework.zend.com/manual/2.1/en/modules/zend.view.quick-start.html#dealing-with-layouts
+
+Q: from Julian to All Participants: re: Zend\Validator\Regex: I got this from ZendCon: On the regex "spec" is for printf to be able to reconstruct the route back from the view helper as the regex itself might not be easily "reversible".
+A: Thanks!
+
+Q: from Parl to All Participants: so eventmanager knows detects that its a strategy object and automatically listens on render?... does priority matter?
+A: Zend\Mvc\Application::bootstrap() attaches a number of listeners which includes Zend\Mvc\View\Http\ViewManager
+   and Zend\Mvc\SendResponseListener.  The ViewManager::onBootstrap handler attaches the Zend\Mvc\View\Http\InjectViewModelListener
+   to the MVC "render" event.  The ViewManager is also responsible for registering alternate rendering strategies.
+
+Q: from Francois to All Participants: but if you use $form->isValid($data) would it populate the form?
+A: The method signature for Zend\Form\Form::isValid() does not accept any parameters.
+
+Q: Why validate on the filter?  Why not always assign the filter to the form, and validate the form?
+A: There may be some cases where you want the form and filter separated -- i.e. if your form is generated using javascript.
+A: Also, if you look at Zend\Form\Form::isValid(), you will see that the return value for isValid() is actually from the assigned input filter.
+   Therefore, it is more efficient to run isValid() off the filter and not the form.
+
+Q: from Ryan to All Participants: RE: Zend\Form: Is there a method $form->setAction?
+A: No.  Action is now set with $form->setAttribute('action', 'xxx');
+
+Q: from Ryan to All Participants: is there a way to overwrite the view helpers, or do you ahve to write different ones?
+A: Yes.  You can define your own view helpers, using a custom namespace, but with the same "short" classname.
+   You can then identify these helpers in the module.config.php file.  Bear in mind, however, that many of the view
+   helpers have "set" methods which let you override behavior.  For example, the "basePath()" view helper has a method
+   "setBasePath()" which allows you to override the system-derived path.
+
+Q: Can you show me an example of using classmap autoloader?
+A: ZfcUser\Module::getAutoloaderConfig()
+
+Q: from Francois to All Participants: Which has priority if two keys are defined the same name in Module::getServiceConfig, module.config.php => service_manager, or autoload/local.php?
+A: The order in which settings are integrated are as follows: 
+   (1) Module.php
+   (2) module.config.php, 
+   (3) global/local override files
+   If there are duplicate keys, later settings will override earlier settings.
+   Test: zf2.unlikelysource.org/check
+
+Q: Should I use the "query" route type if I have a variable number of parameters to pass?
+A: No.  The "query" route is deprecated as of ZF 2.1.4; you could either use the "query" option of the HTTP router's 
+   assembling method instead in /Zend/Mvc/Router/Http/Query.php on line 51 or use the "wildcard" route.
+
+Q: from Brad to All Participants: can you also access those event(s) by the identifier at runtime (by event i mean listener)?
+A: No.  Identifiers are a way to create communication between an individual EventManager instance and the SharedEventManager. 
+   This allows you to connect a listener to an event without having direct access to the given EventManager instance or the 
+   object that composes it.
+
+Q: Given the module.config.php => 'view_manager' key, is there a corresponding Module::getViewManagerConfig() method?
+A: No.  Here is a list of Module::get* methods and the equivalent module.config.php key:
+   module.config.php	Module.php
+   -----------------	----------
+   service_manager	getServiceConfig()
+   view_helper		getViewHelperConfig()
+   controllers		getControllerConfig()
+   controller_plugins	getControllerPluginConfig()
+
+Q: from Brad to All Participants: does ZF2 have streaming response capability?
+A: Yes.  This ability was introduced in ZF2.1.  See: http://www.sasaprolic.com/2013/02/sending-stream-responses-with-zend.html
+
+Q: from Chet to All Participants: is there a routeconfig that can be used in module.php?
+A: There is no equivalent to "getConfig()" (which works with Zend\ModuleManager\Listener\ConfigListener).
+   But ... you can attach your own listener in the "onBootstrap()" method to the "route" event.
+
+Q: RE: Zend\Db: can you use hydrators?
+A: Yes.  For results, you can change the default ResultSet to HydratingResultSet
+   (see: http://framework.zend.com/manual/2.1/en/modules/zend.db.result-set.html#zend-db-resultset-hydratingresultset)
+
+Q: If I defined various "on" methods in the Module.php file, will they automatically kick in when the corresponding events are triggered?  For example, if I define "onDispatch" and "onRoute", will they kick in when the "dispatch" and "route" events are triggered?
+A: No.  However, there is the "init()" method which has a listener, Zend\ModuleManager\Listener\InitTrigger, which is accessed during the 
+   module loading stage.  There is also "onBootstrap()" which has a listener, Zend\ModuleManager\Listener\OnBootstrapListener,
+   which is activated when the MVC bootstrap event is triggered.  For more information have a look at the classes under
+   Zend\ModuleManager\Listener\*
+
+Q: RE: routing: could you do an an aternative route somehow, so the plugin would handle the constraint?
+A: Route plugins are a possibility, but a simpler approach might be to add a listener to the "dispatch.error" event which
+   could handle error processing for the module.
+
+Q: from Keiland to All Participants: can the font-color of those validation messages be changed?  for example, from black to red?
+A: Yes, however such styling should be done in the view script/template.
+   If you are using the view helper Zend\Form\View\Helper\FormElementErrors, 
+   there is a method setAttributes() which you can use to override the default styling.
+   Here is an example of setting the text color to red:
+   <!-- Demonstrates how to set error text color to red -->
+   <?php $helper = $this->getHelperPluginManager()->get('formElementErrors'); ?>
+   <?php $helper->setAttributes(array('style' => 'color:red;font-weight:bold;')); ?>
+   <!-- Echoes any errors from 'some_form_element' in bold red -->
+   <?php echo $helper($form->get('some_form_element'); ?>
+
+Q: How do you echo the entire form at once?
+A: echo $this->formCollection($form);
+
+Q: from Adam to All Participants: RE: zend\db\sql\update::set($values, $flag) What is the $flag?
+A: $flag can have one of two values: zend\db\sql\update::VALUES_MERGE or zend\db\sql\update::VALUES_SET
+   VALUES_MERGE = $values are *added* (or merged) into whatever values are currently already set
+   VALUES_SET   = $values override whatever values are currently already set
+
+Q: from Ashley to All Participants:
+is there not a different between not empty and set required in zf2 because i seem to remember that there's a really subtle difference in zf1
+A: If you look at the source code for Zend\InputFilter\Input you will see a method "injectNotEmptyValidator()".
+   What this method does is if the "required" flag is set, adds a "notEmpty" validator using the "prependByName()" method.
+
+Q: Where do you specify "captureTo()"?
+A: On a ViewModel $viewModel.  Use $viewModel->captureTo() to retrieve the name of the variable which serves as a "capture" point
+   for a child view model.  Use $viewModel->setCaptureTo() to override the currently set variable name.
+
+Q: from Ashley to All Participants: is there anyway to work out the different between a true 404 and a constraint violation?
+A: Still researching this ... but when a constraint violation occurs, a "dispatch.error" event is triggered.
+   It is possible to attach a listener to this event which can perform further analysis.
+A: ???still researching this
+
+Q: from Jorge to All Participants:
+Doug Any reason why we shouldnt make the modules array database driven, I plan to make it that way for us, but I just want to make sure that there is nothing I should watch out for?
+A: You can substitute a Zend\Config object for any module configuration which is returned.
+   I.e. in the Module.php file getConfig() method, instead of the following:
+   return include 'config/module.config.php';
+   you could have this:
+   $config = new Zend\Config\Reader\Ini();
+   return $config->fromFile('some_ini_file.ini');
+   To make the system database driven might get tricky.  You run into a chicken-and-egg problem.
+   The configuration defines services.  Your database connection is one such service.
+   But ... if your configuration is in the database ... how do you extract it using services???
+   Possibly you could have your Module.config::getConfig() method include a PHP file which performs a simple database query
+   which returns and formats the values into an array which can then be returned.
+   No easy answers.
+
+Q:from Rudi to All Participants: why not just change the layout path?  each module has it's own module.config.php file, so you cannot have a unique key for each module?
+A: One approach would be to switch layouts in a listener attached in Module.php:
+from Marc to All Participants:	
+<?php
+namespace Layouts;
+class Module {
+    public function onBootstrap($e) {
+        $sm = $e->getApplication()->getEventManager()->getSharedManager();
+        $sm->attach('Zend\Mvc\Controller\AbstractActionController', 'dispatch', function($e) {
+            $controller      = $e->getTarget();
+            $controllerClass = get_class($controller);
+            $moduleNamespace = substr($controllerClass, 0, strpos($controllerClass, '\\'));
+            $config          = $e->getApplication()->getServiceManager()->get('config');
+            if(isset($config['module_layouts'][$moduleNamespace])) {
+                $controller->layout($config['module_layouts'][$moduleNamespace]);
+            }
+        }, 100);
+    }
+}
+A: Another possibility would be to add a "module" or "namespace" key to routing "defaults".
+   In your Module.php listener you could extract this param and use it to make the layout unique, something like this:
+    public function onDispatch(MvcEvent $e)
+    {
+        // alternate layout
+    	$module = $e->getRouteMatch()->getParam('module');
+		// NOTE: this only works if you code the module name into router "defaults" key
+		if (stripos($module, 'view-test') === 0) {
+			$layout = $e->getViewModel();
+			$layout->setTemplate('layout/view-test-layout');
+		}
+    }
+    
+
+Q:from Thomas to All Participants: forms can become quite long for e.g. registration forms had one php file for a single form with more than 300 lines of code?
+A: from Marc to All Participants: it can be broken down into collections
+
+Q: from Delong to All Participants: will we see custom filters later on in the course?
+A: See the latest posting on zf2.unlikelysource.org/forum/topic/zf2/2013-07-08
+
+Q: from Delong to All Participants: Does zend mail have some kind of a queue/scheduled delay functionality?
+A: from William to All Participants: job queue
+
+Q:from Jeff to All Participants: Do ZF2 events, listeners, etc. run on the same thread?
+A: At present yes.
+   This is more of a PHP issue and not a ZF2 issue, as ZF2 is written in PHP.
+   Note this warning, for example, from http://www.php.net/manual/en/install.unix.apache2.php:
+   "We do not recommend using a threaded MPM in production with Apache 2. ...
+   If you want to use a threaded MPM, look at a FastCGI configuration where PHP is running in its own memory space."
+   There is now a "pthreads" PECL extension considered stable as of 8 Sep 2013.
+   See: http://docs.php.net/manual/en/book.pthreads.php
+   ZF2 version 2.2 does not use this extension, however.
+
+Q: Zend\Config example?
+A: From: zf2.unlikelysource.org/config/autoload/zf2f.global.php
+$configFile = __DIR__ . '/../../module/Zf2f/config/labs_and_classes.ini';
+$configReader = new Zend\Config\Reader\Ini();
+$config = $configReader->fromFile($configFile);
+return ['service_manager' => $config];
+
+Q: Module specific listeners using a "module" param in the routing config?
+A: Add a param "module" => "name of module" under router => routes => xxx => options => defaults
+   In the onBootstrap() method:
+    public function onBootstrap(MvcEvent $e)
+    {
+        $eventManager        = $e->getApplication()->getEventManager();
+        $moduleRouteListener = new ModuleRouteListener();
+        $moduleRouteListener->attach($eventManager);
+        $eventManager->attach(MvcEvent::EVENT_DISPATCH, array($this, 'modSpecific'), 100);
+    }
+    public function modSpecific(MvcEvent $e)
+    {
+    	$routeInfo = $e->getRouteMatch();
+    	if ($routeInfo->getParam('module') == 'name of module') {
+    		// do something
+    	}
+    }
+
+Q: How can you use module/XXX/public assets?
+A: There is a ZF2 module "AssetManager" which does this.
+   See: https://github.com/RWOverdijk/AssetManager
+
+Q: How do you configure Zend Server / nginx for ZF2 apps?
+A: Create an include file which accounts for PHP and rewriting (call it /etc/nginx/conf.d/zf.inc):
+
+location / {
+	try_files $uri @rewrite;
+}
+
+location @rewrite {
+	rewrite ^/(.*)$ /index.php;
+}
+
+location ~* \.(gif|jpg|png)$ {
+	expires 30d;
+}
+
+location ~ \.php$ {
+	fastcgi_pass  unix:/usr/local/zend/tmp/php-fpm.sock;
+	fastcgi_param SCRIPT_FILENAME
+				  $document_root$fastcgi_script_name;
+	include       fastcgi_params;
+}
+
+For each virtual server you wish to configure for your ZF1 or ZF2 apps, add a "server" directive, specify the server name, and include the file created above:
+
+server {
+    listen      80;
+    server_name virtual.server.name;
+    root        /path/to/zf/app/public;
+   include /etc/nginx/conf.d/zf.inc;
+}
+
+NOTE: make sure the root directive maps to the public directory of your ZF app.
+
+See this article for more information:
+
+http://blogs.sakienvirotech.com/index.php/random/2011/08/25/using-zend-framework-or-drupal
+
+Q: from Karl to All Participants: How do you overwrite error messages using the factory approach?
+A: Assuming you have something like this:
+    'validators' => array(
+        array(
+            'name'      => 'Regex',
+            'options' => array(
+                'pattern' => '/^[a-z0-9., -]{1,255}$/i',
+            ),
+        ),
+A: Add a key 'message' => 'whatever you want' to the array to overwrite
+
+Q: Can you give an example of a JOIN in Zend\Db\Sql?
+A: $select->join(
+     'foo' 			// table name,
+     'id = bar.id', 		// expression to join on (will be quoted by platform object before insertion),
+     array('bar', 'baz'), 	// (optional) list of columns, same requirements as columns()
+     $select::JOIN_OUTER 	// (optional), one of inner, outer, left, right also represented by constants in the API
+);
+
+Q: How can you do things like create or alter table using Zend\Db\Sql?
+A: Use classes under Zend\Db\Sql\Ddl.
+   See http://framework.zend.com/manual/2.2/en/modules/zend.db.sql.ddl.html
+
+Q: from Abdullah to All Participants: we can using getRouteConfig in class module?
+A: Yes, but it is not used to define routes: it's used to define router plugins.  
+   This method is defined in Zend\ModuleManager\Feature\RouteProviderInterface.
+   See http://framework.zend.com/manual/2.2/en/tutorials/config.advanced.html
+
+Q: Is there a list of Module.php methods vs. config/module.config.php keys?
+A: Yes: http://framework.zend.com/manual/2.2/en/modules/zend.module-manager.module-manager.html
+
+Q: from Karl to All Participants: how would you change the 404 route? ie, where is that set?
+A: Zend\Mvc\DispatchListener is one of the default listeners attached during the Mvc bootstrap phase.
+   (See Zend\Mvc\Application::bootstrap()).  DispatchListener attempts to instantiate the controller 
+   determined by the route match, and to dispatch the matching action.  
+   If unable to do so, an MvcEvent::EVENT_DISPATCH_ERROR event is triggered.
+   The MvcEvent will hold an error code, which would be one of the following:
+   Application::ERROR_CONTROLLER_NOT_FOUND
+   Application::ERROR_CONTROLLER_INVALID
+   Application::ERROR_ROUTER_NO_MATCH
+   The Zend\Mvc\View\Http\RouteNotFoundStrategy attaches two listeners to the dispatch error event:
+   --> "detectNotFoundError()" determines if one of the three error codes is recorded; if so, sets a 404 status code
+   --> "prepareNotFoundViewModel()" prepares and returns the "404" view model
+   The best way to change this behavior would be to attach a high-priority listener to the dispatch error event.
+   
+Q: from Jay to All Participants: Does ZF2 support MySQL with Propel?
+A: There is a module VureZF2 which integrates PropelORM functionality with ZF2.
+   See: http://modules.zendframework.com/miszyman/VureZF2
+
+Q: Examples of using Smarty with ZF2?
+A: There is a module SmartyModule which implements an alternate view renderer called "SmartyRenderer".
+   See: http://modules.zendframework.com/Domi-cc/SmartyModule
+
+Q: RE: form hydration -- class methods: from Francois Dupras to All Participants: would it go in __call if not found?
+A: Still researching
+
+Q: from Ryan to All Participants: How do you have public resources there, that arent under the accessible top level public folder?
+A: Still researching
+
+Q: RE: Zend\InputFilter: Can you set wildcard filters?
+A: Still researching.
+
+Q: How about XML? How could you do that?
+A: Still researching.  It is possible to have the controller pass data to the view, and then, in the view script,
+   generate the appropriate XML headers and use SimpleXML to generate XML output.
+A: Another possibility would be to directly append XML content to the response object and return it directly (after setting the appropriate headers).
+
+Q: RE: Zend\InputFilter\Input are inputs required by default?
+A: Yes.  
+   To make them not required: $input->setRequired(FALSE);
+   To make it so that if empty they are not validated: $input->setAllow Empty(TRUE);
+
+Q: Example of redirecting on error?
+A: From training.unlikelysource.org::UnlikelyOutliner\Module
+    public function onBootstrap(MvcEvent $e) {
+        $eventManager = $e->getApplication()->getEventManager();
+        $eventManager->attach(MvcEvent::EVENT_RENDER_ERROR, array($this, 'onRenderError'), 100);
+    }
+
+    public function onRenderError(MvcEvent $e)
+    {
+    	/*
+    	 * Example:
+    	 * object(Zend\Mvc\Router\Http\RouteMatch)#155 (3) {
+			  ["length":protected] => int(43)
+			  ["params":protected] => array(7) {
+			    ["controller"] => string(36) "unlikely-outliner-controller-outline"
+			    ["action"] => string(5) "slide"
+			    ["subject"] => string(12) "php-security"
+			    ["chapter"] => string(16) "nature-and-scope"
+			    ["topic"] => string(1) "1"
+			    ["subtopic"] => string(1) "1"
+			    ["slide"] => string(2) "10"
+			  }
+			  ["matchedRouteName":protected] => string(24) "unlikely-outliner-action"
+			  http://training.unlikelysource.local/php-security/topic/nature-and-scope/1
+			}
+    	 */
+    	$routeMatch = $e->getRouteMatch();
+        $response  = $e->getResponse();
+        $url = sprintf('/%s/topic/%s/%s', 
+   			$routeMatch->getParam('subject'),
+    			$routeMatch->getParam('chapter'),
+    			$routeMatch->getParam('topic'));
+        $response->getHeaders()->addHeaderLine('Location', $url);
+        $response->setStatusCode(302);
+        return $response;
+    }
+
+
+Q: Get an example of internal redirecting using routematch()
+A: // from a Module.php listener:
+    public function xyRedirect(MvcEvent $e)
+    {
+        // capture action param
+        $candidates = array('x','y','z');
+        $routeMatch = $e->getRouteMatch();
+    	$action = $routeMatch->getParam('action');
+	// NOTE: this only works if you code the module name into the service manager controller key
+	if ($action === 'module') {
+	    $param     = $candidates[rand(0,2)];
+	    $newAction = 'module-' . $param;
+	    $routeMatch->setParam('action', $newAction);
+	    $routeMatch->setParam('redirect', 'REDIRECT ' . $param);
+	}	    
+    }    
+
+Q: What is the equivalent of the ZF1 context switcher in ZF2?
+A: There is a controller plugin known as the "acceptableViewMOdelSelctor()".
+   See: http://framework.zend.com/manual/2.2/en/modules/zend.mvc.plugins.html#zend-mvc-controller-plugins-acceptableviewmodelselector
+
+Q: RE: Zend Studio: from Brett to All Participants:
+the "problems" panel usually has about ten thousand warnings, usually related to vendor code.
+can it be configured to exclude a certain directory (ie vendor)
+
+Q: Do you still need to run $form->prepare() in zf 2.2?
+A: Yes!!!  It handles a number of settings including ensure object bindings are set.
+
+Q: How do you get an instance of the event manager?
+A: In the Module.php file:
+	public function init(ModuleManager $mm)
+	{
+           $eventManager = $mm->getEventManager();
+	   // some code ...
+        }
+	public function onBootstrap(MvcEvent $e)
+	{
+           $eventManager = $e->getApplication()->getEventManager();
+	   // some code ...
+        }
+   From a controller:
+   $this->getEventManager();
+   From anywhere else: 
+   attach listeners to the shared event "X" using identifier "Z";
+   to trigger "X": create a unique EventManager instance with an identifier "Z"
+
+Q: from Tim to All Participants: does TableGateway have an iterator?
+A: When you do a query on the table (i.e. $table->select()), it returns a Zend\Db\ResultSet\ResultSet object, which is an iterator.
+   If you directly dump its contents (i.e. Zend\Debug\Debug::dump($table->select())) you will not see actual database
+   values.  If, on the other hand, you use this command: iterator_to_array($table->select()), you will see all the
+   values in the form of an array.
+
+Q: from Prasant to All Participants: so in module.php, is the only way to retrieve the servicemanager instance using the syntax  
+   $e->getApplication()->getServiceManager()?
+A: Only if your listener is handled at the MVC level and receives an MVC event as an argument.
+   Otherwise you will need to retrieve the instance of the object triggering the event using $e->getTarget().
+   Then, depending upon which object triggered the event, you might be able to use one of its methods to retrieve 
+   the service manager instance.
+
+Q: from Bryan to All Participants: also is there a way to get last autoincremented value of key field?
+A: Get an instance of the adapter (i.e., from a table gateway instance: $table->getAdapter()).  From there you can
+   run "getLastInsertId()".
+
+Q: RE: Zend\Form, etc. I keep getting the message "Input Not Found in Haystack" on my SELECT element,
+   even if I have used "$element->setRequired(FALSE)" and "$element->allowEmpty(TRUE)".
+A: The "InArray" validator is used as an internal default for Zend\Form\Element\Select elements.
+   You can run this method: $element->disableInArrayValidator() to forceably disable this functionality.
+
+Q: Can you give us the syntax for a proper redirect in a listener?
+A: public function onBootstrap(MvcEvent $e)
+   {
+       $em = $e->getApplication()->getEventManager();
+       $em->attach(MvcEvent::EVENT_DISPATCH, array($this, 'validateSender'), 999);   
+   }
+   public function validateSender(MvcEvent $e)
+   {
+        // some logic
+        if (!some condition) {
+            $response->getHeaders()->addHeaderLine('Location', 'http://some.url/');
+            $response->setStatusCode(302);
+            return $response;
+        }
+   }
+
+Q: from Arnout to All Participants: Can you tell the service manager to destroy instances it's holding on to?
+A: No.  There is a protected method ServiceManager::unregisterService() ... but it cannot be called from the outside.
+   
+Q: Is there a way to get a list of listeners attached to an event?
+A: Zend\EventManager\EventManager::getListeners(string $event)
+   see: http://framework.zend.com/apidoc/2.3/classes/Zend.EventManager.EventManager.html#getListeners
+
+Q: Is there a way to get a list of all registered events?
+A: Zend\EventManager\EventManager::getEvents()
+   see: http://framework.zend.com/apidoc/2.0/classes/Zend.EventManager.EventManager.html#getEvents
+
+Q: What does Filter\Inflector do?
+A: from Prabhu to All Participants: i fount this about inflector from zend ..
+As an example, you may find you need to transform MixedCase or camelCasedWords into a path; for readability, OS policies, or other reasons, you also need to lower case this, and you want to separate the words using a dash ('-'). An inflector can do this for you. 
+
+Q: What does Zend\Validator\Explode do?
+A: Returns TRUE if all values in $value validate true.
+   If $value is a string, uses getValueDelimiter() to do a PHP explode()
+   Use setValueDelimiter (or array('options' => array('valueDelimiter' => xxx)) to set the delimiter
+   Use setValidator() to assign 1 or more validators to be used on each value exploded
+   
+Q: How do you add a $_GET param "name" to a constructed route?
+A: In a view template:
+   echo $this->url('route', array(), array('query' => array('name' => 'value')));
+   result: /route?name=value
+
+Q: How do I specify a fixed URL prefix in ZF2?
+A: One solution is to use the "RewriteBase" directive in the .htaccess file.
+   See: http://stackoverflow.com/questions/704102/how-does-rewritebase-work-in-htaccess
+   Otherwise ... still researching
+
+Q: How do you enable configuration caching in ZF2?
+A: ref: http://akrabat.com/zend-framework-2/caching-your-zf2-merged-configuration/
+   Create a directory /data/cache and make sure the permissions are set properly.
+   In the config/application.config.php file:
+   'config_cache_enabled'     => true,
+   'cache_dir'                => 'data/cache/',
+   NOTE: any anonymous functions in the module.config.php files will crash your app!
+   NOTE: when configuration changes cache needs to be refreshed
+
+Q: How do you get an instance of the service manager?
+A: Depends on where you are in the code.
+   For listeners operating within the MVC layer, you can access it via Zend\Mvc\Application:
+   (MvcEvent) $e->getApplication()->getServiceManager
+   For listeners operating within the module loading stage, you can access it via the module manager instance:
+   (ModuleManager) $e->getServiceLocator()
+   From inside a controller action:
+   $this->getServiceLocator()
+   
+Q: RE: unable to unzip ZF2F zip file.
+A: from Sander to All Participants: with winrar and 7zip it worked
+A: from Sander to All Participants: the disk images was 500 PB according to zip program of windows
+
+
+-----------------------------------------------------------------------------------------------------
+Initial VM and Lab Setup Notes
+doug@unlikelysource.com : 2013-05-20 10:06:02
+
+VM NOTES:
+
+How to release the mouse: CTRL + ALT
+Keyboard Settings:
+-- Top right - keyboard settings: click until the one you want shows up
+-- Right click and select Keyboard Preferences - Layouts for other choices
+Video Resolution:
+-- You'll need to install VMware Tools to get the video to adjust to your host computer
+VMware Tools:
+-- Open a terminal window (black screen icon top left)
+-- cd /home/zend/Downloads/vmware-tools/distrib
+-- Run the installer as a "root" user
+       sudo ./vmware-install.pl
+-- Answer the prompts (usually the defaults are OK -- just press ENTER to accept)
+-- Either shutdown and restart the VM (click on the icon extreme top left inside the VM)
+
+
+HOW TO GET RID OF YELLOW LINES IN ZEND STUDIO
+
+1. Close the project
+2. Replace the file /workspace/onlinemarket.work/.buildpath with this:
+<?xml version="1.0" encoding="UTF-8"?>
+<buildpath>
+	<buildpathentry kind="con" path="com.zend.php.phpunit.CONTAINER"/>
+	<buildpathentry kind="con" path="org.eclipse.php.core.LANGUAGE"/>
+	<buildpathentry kind="con" path="org.zend.php.framework.v2.CONTAINER"/>
+</buildpath>
+3. Open the project
+4. Select "Project" - "Clean"
+
+
+Module 2 Lab Notes
+doug@unlikelysource.com : 2013-05-20 13:12:36
+
+Module 2 Lab Troubleshooting
+from Maurice K - Zend to All Participants:
+http_proxy=http://username:password@hostname:port;
+   export $http_proxy
+
+(from a terminal window) sudo cat /usr/local/zend/var/log/php.log
+Also: add this line to /public/index.php:
+ini_set('display_errors', 1);
+
+Make sure you reset filesystem permissions as follows:
+sudo chmod -R 755 /workspace/*
+
+Q: What if I get the following error: "I cannot access the API of github."???
+A: #1 make sure your VM can connect to the Internet.  #2 simply try again over a span of several minutes.
+   If that doesn't work, download and unzip:
+   1. Download the Skeleton App from https://github.com/zendframework/ZendSkeletonApplication/archive/master.zip
+   2. Create a folder for the project: mkdir /workspace/onlinemarket.work
+   3. Click on "Places" on the top left menu bar, locate the downloaded skeleton app, and double click on it
+   4. Extract the contents into /workspace/onlinemarket.work
+   5. Download ZF2 from https://packages.zendframework.com
+   6. Locate the downloaded file an double click
+   7. Extract into /workspace/onlinemarket.work/vendor
+   8. Rename to folder to /workspace/onlinemarket.work/vendor/ZF2
+   9. Reset rights to 755: 
+      chmod -R 755 /workspace/onlinemarket.work/module/Market
+
+   Further documentation can be found at: http://framework.zend.com/downloads/skeleton-app
+
+Q: What if I get a blank screen?
+A: Look at the php log: sudo cat /usr/local/zend/var/log/php.log
+   If you see this error:
+PHP Fatal error:  Uncaught exception 'Zend\ServiceManager\Exception\InvalidArgumentException' with message 'Provided abstract factory must be the class name of an abstract factory or an instance of an AbstractFactoryInterface.' in /workspace/onlinemarket.work/vendor/ZF2/library/Zend/ServiceManager/ServiceManager.php
+   Proceed as follows:
+   1. Click on "Places" from the top menu bar on the left
+   2. Locate /workspace/onlinemarket.work/vendor
+   3. Remove the "ZF2" folder
+   4. Download ZF2 from https://packages.zendframework.com
+   5. Locate the downloaded file an double click
+   6. Extract into /workspace/onlinemarket.work/vendor
+   7. Rename to folder to /workspace/onlinemarket.work/vendor/ZF2
+   8. Reset rights to 755: 
+      chmod -R 755 /workspace/onlinemarket.work/module/Market
+
+Q: What if I can't get to the Internet?
+A: Make sure your host can connect to the Internet.
+   Make sure the VM can connect to the Internet:
+   Click on the network icon (top right, between the keyboard settings and the date)
+   Select "Auto eth0"
+
+Module 4 (Service Manager) Lab Notes
+doug@unlikelysource.com : 2013-05-22 12:09:52
+
+barter
+beauty
+clothing
+computer
+entertainment
+free
+garden
+general
+health
+household
+phones
+property
+sporting
+tools
+transportation
+wanted
+
+NOTE: for step A.5: all categories should be *lowercase*!!!
+
+MODULE 5 (MVC and MODULES) LAB NOTES
+doug@unlikelysource.com : 2013-05-23 07:45:55
+
+IF YOU get an error:
+Fatal error: Uncaught exception 'Zend\ModuleManager\Exception\RuntimeException' with message 'Module (Market) could not be initialized.'
+RESET RIGHTS to 755: chmod -R 755 /workspace/onlinemarket.work/module/Market
+
+Make sure that the autoload_classmap.php file has the correct paths.  If not, the module will fail to initialize
+
+TYPOS:
+5.A.4: s/be no spaces after "/" in the table
+5.A.11: s/be http://onlinemarket.work/market/market-index-controller/*
+5.A.11: zftool.phar command at end s/be:
+php /path/to/onlinemarket.start/files/zftool.phar /path/to/onlinemarket.work/module/Market /path/to/onlinemarket.work/module/Market/autoload_classmap.php -w
+
+Module 6 and 7 Lab Solutions
+doug@unlikelysource.org : 2013-05-29 06:17:20
+
+// module.config.php
+ <?php
+ return array(
+ 	'controllers' => array(
+		'aliases' => array(
+    		'alt' => 'market-view-controller',
+    	),
+        'invokables' => array(
+            'market-index-controller' => 'Market\Controller\IndexController',
+            'market-view-controller' => 'Market\Controller\ViewController',
+        ),
+        'factories' => array(
+            'market-post-controller' => 'Market\Factory\PostControllerFactory',
+        ),
+    ),
+	// custom controller plugin
+	'controller_plugins' => array(
+	    'invokables' => array(
+			'normalizeCategory' => 'Market\Controller\Plugin\NormalizeCategory',
+	    ),
+	),
+	'router' => array(
+		'routes' => array(
+			'home' => array(
+				'type'    => 'Literal',
+				'options' => array(
+					'route'    => '/',
+					'defaults' => array(
+						'controller'    => 'market-index-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+			'market' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					'route'    => '/market[/]',
+					'defaults' => array(
+						'controller'    => 'market-index-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+			'market-view' => array(
+				'type'    => 'Literal',
+				'options' => array(
+					'route'    => '/market/view',
+					'defaults' => array(
+						'controller'    => 'market-view-controller',
+						'action'        => 'index',
+					),
+				),
+				'may_terminate' => true,
+				'child_routes' => array(
+					// This route is a sane default when developing a module;
+					// as you solidify the routes for your module, however,
+					// you may want to remove it and replace it with more
+					// specific routes.
+					'default' => array(
+						'type'    => 'Segment',
+						'options' => array(
+							'route'    => '[/:action][/:category][/]',
+							'constraints' => array(),
+							'defaults' => array(),
+						),
+					),
+				),
+			),
+			'market-post' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					// Change this to something specific to your module
+					'route'    => '/market/post[/]',
+					'defaults' => array(
+						'controller'    => 'market-post-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+		),
+	),
+ 	'view_helpers' => array(
+ 		'invokables' => array(
+ 			'leftLinks' => 'Market\Helper\LeftLinks',
+ 		),
+ 	),
+    'view_manager' => array(
+        'template_map' => array(
+            'market/index/index' => __DIR__ . '/../view/market/index/index2.phtml',
+        ),
+        'template_path_stack' => array(
+            'Market' => __DIR__ . '/../view',
+        ),
+    ),
+);
+
+// IndexController.php
+<?php
+namespace Market\Controller;
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+class IndexController extends AbstractActionController
+{
+	public function indexAction()
+    {
+    	if ($this->flashmessenger()->hasMessages()) {
+    		$messages = $this->flashMessenger()->getMessages();
+    		$this->flashMessenger()->clearMessages();
+    	} else {
+    		$messages = array();
+    	}
+    	$viewModel = new ViewModel(array('messages' => $messages, 'test' => 'TEST'));
+    	$viewModel->setTemplate('market/index/index2.phtml');
+        return $viewModel;
+    }
+    
+}
+
+// ViewController.php
+<?php
+namespace Market\Controller;
+
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+
+class ViewController extends AbstractActionController
+{
+
+    public function indexAction()
+    {
+		$category = $this->params()->fromRoute('category');
+    	// create ViewModel
+    	$viewModel = new ViewModel(array('category' => $category));
+        return $viewModel;
+    }
+	public function itemAction()
+	{
+		$category = $this->params()->fromRoute('category');
+		if (!$category) {
+			$this->flashMessenger()->addMessage('Item Not Found');
+			return $this->redirect()->toRoute('market');
+		}
+		$viewModel = new ViewModel(array('listings' => 'LIST OF ITEMS', 
+										 // uses custom controller plugin
+//										 'category' => $this->normalizeCategory($category)));
+										 'category' => $category));
+				return $viewModel;
+	}
+}
+
+// custom controller plugin
+<?php
+namespace Market\Controller\Plugin;
+
+use Zend\Mvc\Controller\Plugin\AbstractPlugin;
+
+class NormalizeCategory extends AbstractPlugin
+{
+	public function __invoke($category)
+	{
+		return strtolower(str_ireplace(	' ', '', strip_tags($category)));
+	}
+}
+
+// PostController.php
+<?php
+namespace Market\Controller;
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+class PostController extends AbstractActionController
+{
+	public $categories;
+	public function indexAction()
+	{
+		$viewModel = new ViewModel(array('categories' => $this->categories));
+		$viewModel->setTemplate('market/post/invalid.phtml');
+		return $viewModel;
+	}
+}
+
+// PostControllerFactory.php
+<?php
+namespace Market\Factory;
+use Zend\ServiceManager\FactoryInterface;
+use Zend\ServiceManager\ServiceLocatorInterface;
+use Market\Controller\PostController;
+class PostControllerFactory implements FactoryInterface
+{
+	public function createService(ServiceLocatorInterface $controllerManager)
+	{
+		$serviceManager = $controllerManager->getServiceLocator();
+		$controller = new PostController();
+		// NOTE: using public property injection rather than setter injection!
+		$controller->categories = $serviceManager->get('categories');
+		return $controller;
+	}
+}
+
+// LeftLinks.php
+<?php
+namespace Market\Helper;
+use Zend\View\Helper\AbstractHelper;
+class LeftLinks extends AbstractHelper
+{
+	public function render($values, $urlPrefix)
+	{
+		$output = '<ul>';
+		if (is_array($values)) {
+			foreach ($values as $category) {
+				$output .= '<li>';
+				$output .= '<a href="' . $urlPrefix . '/' . $category . '">' . $category . '</a>';
+				$output .= '</li>';
+			}
+		}
+		$output .= '</ul>';
+		return $output;
+	}
+	public function __invoke($values, $urlPrefix)
+	{
+		return $this->render($values, $urlPrefix);
+	}
+}
+
+// autoload_classmap.php
+<?php
+// Generated by Zend Framework 2
+return array(
+    'Market\Controller\IndexController' 		=> __DIR__ . '/src/Market/Controller/IndexController.php',
+    'Market\Controller\ViewController' 			=> __DIR__ . '/src/Market/Controller/ViewController.php',
+	'Market\Controller\PostController' 			=> __DIR__ . '/src/Market/Controller/PostController.php',
+    'Market\Controller\Plugin\NormalizeCategory'=> __DIR__ . '/src/Market/Controller/Plugin/NormalizeCategory.php',
+	'Market\Factory\PostControllerFactory'		=> __DIR__ . '/src/Market/Factory/PostControllerFactory.php',
+	'Market\Helper\LeftLinks'					=> __DIR__ . '/src/Market/Helper/LeftLinks.php',
+	'Market\Module'                     		=> __DIR__ . '/Module.php',
+    'MarketTest\SampleTest'             		=> __DIR__ . '/tests/Market/SampleTest.php',
+    'MarketTest\Framework\TestCase'     		=> __DIR__ . '/tests/Market/Framework/TestCase.php',
+);
+
+// view/market/index/index2.phtml
+<h1>Market Main Page</h1>
+<?php if (isset($this->messages)) : ?>
+<span style="font-weight: bold; color: red;">
+<?php echo $this->htmlList($this->messages); ?>
+</span>
+<?php endif; ?>
+Directly: <?php echo $test; ?>
+<br />
+This: <?php echo $this->test; ?>
+<br />
+Vars: <?php echo $this->vars()->test; ?>
+
+// view/market/view/index.phtml
+<h1><?php echo $this->escapeHtml(ucfirst($this->category)); ?></h1>
+
+// view/market/view/item.phtml
+<?php $item = (isset($this->category)) ? $this->category : 'Unknown'; ?>
+<h3><?php echo $this->escapeHtml(ucfirst($item)); ?></h3>
+
+// view/market/post/index.phtml
+<?php Zend\Debug\Debug::dump($this->categories); ?>
+
+// view/market/post/invalid.phtml
+<h1 style='color:red;'>Invalid</h1>
+<?php Zend\Debug\Debug::dump($this->categories); ?>
+
+Module 9 (Forms/Filters/Validators) Lab Solutions
+doug@unlikelysource.org : 2013-05-30 09:28:08
+
+// module.config.php
+ <?php
+ return array(
+ 	'service_manager' => array(
+ 		'factories' => array(
+ 			'market-post-form' => 'Market\Factory\PostFormFactory',
+ 			'market-post-form-filter' => 'Market\Factory\PostFormFilterFactory',
+ 		),
+ 	),
+ 	'controllers' => array(
+		'aliases' => array(
+    		'alt' => 'market-view-controller',
+    	),
+        'invokables' => array(
+            'market-index-controller' => 'Market\Controller\IndexController',
+            'market-view-controller' => 'Market\Controller\ViewController',
+        ),
+        'factories' => array(
+            'market-post-controller' => 'Market\Factory\PostControllerFactory',
+        ),
+    ),
+	// custom controller plugin
+	'controller_plugins' => array(
+	    'invokables' => array(
+			'normalizeCategory' => 'Market\Controller\Plugin\NormalizeCategory',
+	    ),
+	),
+	'router' => array(
+		'routes' => array(
+			'home' => array(
+				'type'    => 'Literal',
+				'options' => array(
+					'route'    => '/',
+					'defaults' => array(
+						'controller'    => 'market-index-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+			'market' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					'route'    => '/market[/]',
+					'defaults' => array(
+						'controller'    => 'market-index-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+			'market-view' => array(
+				'type'    => 'Literal',
+				'options' => array(
+					'route'    => '/market/view',
+					'defaults' => array(
+						'controller'    => 'market-view-controller',
+						'action'        => 'index',
+					),
+				),
+				'may_terminate' => true,
+				'child_routes' => array(
+					// This route is a sane default when developing a module;
+					// as you solidify the routes for your module, however,
+					// you may want to remove it and replace it with more
+					// specific routes.
+					'default' => array(
+						'type'    => 'Segment',
+						'options' => array(
+							'route'    => '[/:action][/:category][/]',
+							'constraints' => array(),
+							'defaults' => array(),
+						),
+					),
+				),
+			),
+			'market-post' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					// Change this to something specific to your module
+					'route'    => '/market/post[/]',
+					'defaults' => array(
+						'controller'    => 'market-post-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+		),
+	),
+ 	'view_helpers' => array(
+ 		'invokables' => array(
+ 			'leftLinks' => 'Market\Helper\LeftLinks',
+ 		),
+ 	),
+    'view_manager' => array(
+        'template_map' => array(
+            'market/index/index' => __DIR__ . '/../view/market/index/index2.phtml',
+        ),
+        'template_path_stack' => array(
+            'Market' => __DIR__ . '/../view',
+        ),
+    ),
+);
+
+// PostForm.php
+<?php
+namespace Market\Form;
+
+use Zend\Form\Form;
+use Zend\Form\Element;
+
+class PostForm extends Form
+{
+	public static $expireDays = array(0  => 'Never', 
+									  1  => 'Tomorrow', 
+									  7  => 'Week', 
+									  30 => 'Month');
+	public static $cities = array('Paris,FR' => 'Paris',
+								  'London,UK' => 'London',
+								  'New York,USA' => 'New York',
+								  'Berlin,DE' => 'Berlin'
+	);
+	public function prepareElements($categories)
+	{
+		$category = new Element\Select('category');
+		$category->setLabel('Category')
+				 ->setAttribute('title', 'Please select a category from the list')
+				 ->setValueOptions($categories);
+		
+		$title = new Element\Text('title');
+		$title->setLabel('Title')
+			  ->setAttribute('maxlength', 128);
+		
+		$price = new Element\Number('price');
+		$price->setLabel('Price')
+			  	 ->setAttribute('title', 'Enter price as nnn.nn')
+	 		  	 ->setAttribute('size', 16)
+			  	 ->setAttribute('maxlength', 16);
+		
+		$expires = new Element\Radio('expires');
+		$expires->setLabel('Expires')
+			    ->setAttribute('title', 'The expiration date will be calculated from today')
+			    ->setAttribute('class', 'expiresButton')
+			    ->setValueOptions(self::$expireDays);
+		
+		$city = new Element\Select('city');
+		$city->setLabel('Nearest City')
+			  ->setAttribute('title', 'Select the city of the item')
+			  ->setValueOptions(self::$cities);
+				
+		$name = new Element\Text('name');
+		$name->setLabel('Contact Name')
+			 ->setAttribute('title', 'Enter the name of the person to contact for this item')
+			 ->setAttribute('size', 40)
+			 ->setAttribute('maxlength', 255);
+		
+		$phone = new Element\Text('phone');
+		$phone->setLabel('Contact Phone Number')
+			  ->setAttribute('title', 'Enter the phone number of the person to contact for this item')
+			  ->setAttribute('size', 20)
+			  ->setAttribute('maxlength', 32);
+		
+		$email = new Element\Email('email');
+		$email->setLabel('Contact Email')
+			  ->setAttribute('title', 'Enter the email address of the person to contact for this item')
+			  ->setAttribute('size', 40)
+			  ->setAttribute('maxlength', 255);
+
+		$description = new Element\Textarea('description');
+		$description->setLabel('Description')
+					->setAttribute('title', 'Enter a suitable description for this posting')
+					->setAttribute('rows', 4)
+					->setAttribute('cols', 80);
+
+		$submit = new Element\Submit('submit');
+		$submit->setAttribute('value', 'Post')
+			   ->setAttribute('title', 'Click here when done');
+		
+		$this->add($category)
+			 ->add($title)
+			 ->add($price)
+			 ->add($expires)
+			 ->add($city)
+			 ->add($name)
+			 ->add($phone)
+			 ->add($email)
+			 ->add($description)
+			 ->add($submit);
+	}
+}
+
+// PostFormFilter.php
+<?php
+namespace Market\Form;
+
+use Zend\InputFilter\InputFilter;
+use Zend\InputFilter\Input;
+use Market\Form\Filter\Float;
+
+class PostFormFilter extends InputFilter
+{
+	public function prepareFilters($categories)
+	{
+		$category = new Input('category');
+		$category->getFilterChain()
+				 ->attachByName('StripTags')
+				 ->attachByName('StringTrim');
+		// NOTE: array needs to be reprocessed to get correct values
+		// $categories = array_combine($categories, $categories);
+		$category->getValidatorChain()
+				 ->attachByName('InArray', array('haystack' => $categories));
+		
+		$title = new Input('title');
+		$title->getFilterChain()
+				 ->attachByName('StripTags')
+				 ->attachByName('StringTrim');
+		$title->getValidatorChain()
+				 ->attachByName('Alnum')
+				 ->attachByName('StringLength', array('min' => 1, 'max' => 128));
+		
+		$price = new Input('price');
+		$price->setAllowEmpty(TRUE);
+		$priceFilter = new Float();		// custom filter
+		$price->getFilterChain()
+			  ->attach($priceFilter);
+		
+		$expires = new Input('expires');
+		$expires->setAllowEmpty(TRUE);
+		// NOTE: need to get array keys to validate!
+		// $expireDays = array_keys(PostForm::$expireDays);
+		$expireDays = PostForm::$expireDays;
+		$expires->getValidatorChain()
+				->attachByName('InArray', array('haystack' => $expireDays));
+		$expires->getFilterChain()
+			    ->attachByName('StripTags')
+				->attachByName('StringTrim');
+		
+		$city = new Input('city');
+		$city->setAllowEmpty(TRUE);
+		$city->getValidatorChain()
+			 ->attachByName('InArray', array('haystack' => PostForm::$cities));
+		$city->getFilterChain()
+			 ->attachByName('StripTags')
+			 ->attachByName('StringTrim');
+		
+		$name = new Input('name');
+		$name->setAllowEmpty(TRUE);
+		$name->getValidatorChain()
+			  ->attachByName('Regex', array('pattern' => '/^[a-z0-9., -]{1,255}$/i'));
+		$name->getFilterChain()
+			  ->attachByName('StripTags')
+			  ->attachByName('StringTrim');
+  
+		$phone = new Input('phone');
+		$phone->setAllowEmpty(TRUE);
+		$phone->getValidatorChain()
+			  ->attachByName('Regex', array('pattern' => '/^\+?\d{1,4}(-\d{3,4})+$/'));
+		$phone->setErrorMessage('Phone number must be in this format: +nnnn-nnn-nnn-nnnn');
+		$phone->getFilterChain()
+			  ->attachByName('StripTags')
+			  ->attachByName('StringTrim');
+  
+		$email = new Input('email');
+		$email->setAllowEmpty(TRUE);
+		$email->getValidatorChain()
+			  ->attachByName('EmailAddress');
+		$email->getFilterChain()
+			  ->attachByName('StripTags')
+			  ->attachByName('StringTrim');
+		
+		$description = new Input('description');
+		$description->setAllowEmpty(TRUE);
+		$description->getValidatorChain()
+					->attachByName('StringLength', array('min' => 1, 'max' => 4096));
+		$description->getFilterChain()
+				    ->attachByName('StripTags')
+				    ->attachByName('StringTrim');
+  
+		$this->add($category)
+			 ->add($title)
+			 ->add($price)
+			 ->add($expires)
+			 ->add($city)
+			 ->add($name)
+			 ->add($phone)
+			 ->add($email)
+			 ->add($description);
+	}
+}
+
+// PostFormFactory.php
+<?php
+namespace Market\Factory;
+use Zend\ServiceManager\FactoryInterface;
+use Zend\ServiceManager\ServiceLocatorInterface;
+use Market\Form\PostForm;
+class PostFormFactory implements FactoryInterface
+{
+	public function createService(ServiceLocatorInterface $serviceManager)
+	{
+		$form = new PostForm();
+		$form->prepareElements($serviceManager->get('categories'));
+		$form->setInputFilter($serviceManager->get('market-post-form-filter'));
+		return $form;
+	}
+}
+
+// PostController.php
+<?php
+namespace Market\Controller;
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+class PostController extends AbstractActionController
+{
+	public $categories;
+	public $postForm;
+	public function indexAction()
+	{
+		$this->postForm->setAttributes(array('method' => 'POST', 
+											 'action' => $this->url()->fromRoute('market-post')));
+		$data = $this->params()->fromPost();
+		$this->postForm->setData($data);
+		$viewModel = new ViewModel(array('categories' => $this->categories,
+										 'postForm' => $this->postForm,
+										 'data' => $data,
+		));
+		$viewModel->setTemplate('market/post/index.phtml');
+		if ($this->getRequest()->isPost()) {
+			if ($this->postForm->isValid()) {
+				$this->flashmessenger()->addMessage('Thanks for your posting!');
+				return $this->redirect()->toRoute('home');
+			} else {
+				$oldViewModel = $viewModel;
+				$viewModel = new ViewModel();
+				$viewModel->setTemplate('market/post/invalid.phtml');
+				$viewModel->addChild($oldViewModel, 'main');
+			}
+		}
+		return $viewModel;
+	}
+	public function setForm($form)
+	{
+		$this->postForm = $form;
+	}
+}
+
+// Market\Form\Filter\Float.php
+<?php
+namespace Market\Form\Filter;
+
+use Zend\Filter\FilterInterface;
+
+class Float implements FilterInterface
+{
+	public function filter($value)
+	{
+		return (float) $value;
+	}
+}
+
+// view/post/index.phtml
+<style>
+label {
+	width: 200px;
+}
+.expiresButton {
+	float: left;
+	width: 100px;
+	margin: 10px;
+}
+</style>
+<?php 
+$form = $this->postForm;
+$form->prepare();
+echo $this->form()->openTag($form);
+echo $this->formCollection($form);
+echo $this->form()->closeTag();
+Zend\Debug\Debug::dump($this->data);
+?>
+
+// view/post/invalid.phtml
+<h1 style='color:red;'>Invalid</h1>
+<?php echo $this->main; // original view model ?>
+
+Module 9 (Forms/Filters/Validators) Lab Solutions Revisited
+doug@unlikelysource.org : 2013-05-31 08:28:56
+
+// revised form and filter classes
+<?php
+namespace Market\Form;
+
+use Zend\Form\Form;
+use Zend\Form\Element;
+use Zend\Captcha;
+
+class PostForm extends Form
+{
+	public static $expireDays = array(0  => 'Never', 
+									  1  => 'Tomorrow', 
+									  7  => 'Week', 
+									  30 => 'Month');
+	public static $cities = array('Paris,FR' => 'Paris',
+								  'London,UK' => 'London',
+								  'New York,USA' => 'New York',
+								  'Berlin,DE' => 'Berlin'
+	);
+	public function prepareElements($categories)
+	{
+		$category = new Element\Select('category');
+		$category->setLabel('Category')
+				 ->setAttribute('title', 'Please select a category from the list')
+				 ->setValueOptions(array_combine($categories,$categories));
+		
+		$title = new Element\Text('title');
+		$title->setLabel('Title')
+			  ->setAttribute('maxlength', 128);
+		
+		$photo = new Element\Text('photo_filename');
+		$photo->setLabel('Photo')
+			  ->setAttribute('maxlength', 256);
+		
+		$price = new Element\Text('price');
+		$price->setLabel('Price')
+			  	 ->setAttribute('title', 'Enter price as nnn.nn')
+	 		  	 ->setAttribute('size', 16)
+			  	 ->setAttribute('maxlength', 16);
+		
+		$expires = new Element\Radio('expires');
+		$expires->setLabel('Expires')
+			    ->setAttribute('title', 'The expiration date will be calculated from today')
+			    ->setAttribute('class', 'expiresButton')
+			    ->setValueOptions(self::$expireDays);
+		
+		$city = new Element\Select('city');
+		$city->setLabel('Nearest City')
+			  ->setAttribute('title', 'Select the city of the item')
+			  ->setValueOptions(self::$cities);
+				
+		$name = new Element\Text('contact_name');
+		$name->setLabel('Contact Name')
+			 ->setAttribute('title', 'Enter the name of the person to contact for this item')
+			 ->setAttribute('size', 40)
+			 ->setAttribute('maxlength', 255);
+		
+		$phone = new Element\Text('contact_phone');
+		$phone->setLabel('Contact Phone Number')
+			  ->setAttribute('title', 'Enter the phone number of the person to contact for this item')
+			  ->setAttribute('size', 20)
+			  ->setAttribute('maxlength', 32);
+		
+		$email = new Element\Email('contact_email');
+		$email->setLabel('Contact Email')
+			  ->setAttribute('title', 'Enter the email address of the person to contact for this item')
+			  ->setAttribute('size', 40)
+			  ->setAttribute('maxlength', 255);
+
+		$description = new Element\Textarea('description');
+		$description->setLabel('Description')
+					->setAttribute('title', 'Enter a suitable description for this posting')
+					->setAttribute('rows', 4)
+					->setAttribute('cols', 80);
+
+		$captcha = new Element\Captcha('captcha');
+		$captchaAdapter = new Captcha\Dumb();
+		$captchaAdapter->setWordlen(5);
+		$captcha->setCaptcha($captchaAdapter)
+				->setAttribute('class', 'captchaStyle')
+			    ->setAttribute('title', 'Help to prevent SPAM');
+		
+		$submit = new Element\Submit('submit');
+		$submit->setAttribute('value', 'Post')
+				->setAttribute('class', 'submitButton')
+				->setAttribute('title', 'Click here when done');
+		
+		$this->add($category)
+			 ->add($title)
+			 ->add($photo)
+			 ->add($price)
+			 ->add($expires)
+			 ->add($city)
+			 ->add($name)
+			 ->add($phone)
+			 ->add($email)
+			 ->add($description)
+			 ->add($captcha)
+			 ->add($submit);
+	}
+}
+
+<?php
+namespace Market\Form;
+
+use Zend\InputFilter\InputFilter;
+use Zend\InputFilter\Input;
+use Market\Form\Filter\Float;
+use Zend\Form\Annotation\Flags;
+
+class PostFormFilter extends InputFilter
+{
+	public function prepareFilters($categories)
+	{
+		// used for InArray validators
+		$expireList = array_keys(PostForm::$expireDays);
+		$cityList = array_keys(PostForm::$cities);
+		
+		// elements
+		$category = new Input('category');
+		$category->getFilterChain()
+				 ->attachByName('StripTags')
+				 ->attachByName('StringTrim');
+		$category->getValidatorChain()
+				 ->attachByName('InArray', array('haystack' => $categories));
+		
+		$title = new Input('title');
+		$title->getFilterChain()
+				 ->attachByName('StripTags')
+				 ->attachByName('StringTrim');
+		$title->getValidatorChain()
+			  ->attachByName('Regex', array('pattern' => '!^[a-z0-9./_ -]+$!i'))
+			  ->attachByName('StringLength', array('min' => 1, 'max' => 128));
+		
+		$photo = new Input('photo_filename');
+		$photo->getFilterChain()
+				 ->attachByName('StripTags')
+				 ->attachByName('StringTrim');
+		$photo->getValidatorChain()
+			  ->attachByName('Regex', array('pattern' => '!^(http://)?[a-z0-9./_-]+(jpg|png)$!i'));
+		$photo->setErrorMessage('Photo must be a URL or a valid filename ending with jpg or png');
+				
+		$price = new Input('price');
+		$price->setAllowEmpty(TRUE);
+		$price->getValidatorChain()
+			  ->addByName('GreaterThan', array('min' => 0));
+		$price->getFilterChain()
+			  ->attach(new Float());	// custom filter
+
+		$expires = new Input('expires');
+		$expires->setAllowEmpty(TRUE);
+		$expires->getValidatorChain()
+				->attachByName('InArray', array('haystack' => $expireList));
+		$expires->getFilterChain()
+			    ->attachByName('StripTags')
+				->attachByName('StringTrim');
+		
+		$city = new Input('city');
+		$city->setAllowEmpty(TRUE);
+		$city->getValidatorChain()
+			 ->attachByName('InArray', array('haystack' => $cityList));
+		$city->getFilterChain()
+			 ->attachByName('StripTags')
+			 ->attachByName('StringTrim');
+		
+		$name = new Input('contact_name');
+		$name->setAllowEmpty(TRUE);
+		$name->getValidatorChain()
+			  ->attachByName('Regex', array('pattern' => '/^[a-z0-9., -]{1,255}$/i'));
+		$name->setErrorMessage('Name should only contain letters, numbers, and some punctuation.');
+		$name->getFilterChain()
+			  ->attachByName('StripTags')
+			  ->attachByName('StringTrim');
+  
+		$phone = new Input('contact_phone');
+		$phone->setAllowEmpty(TRUE);
+		$phone->getValidatorChain()
+			  ->attachByName('Regex', array('pattern' => '/^\+?\d{1,4}(-\d{3,4})+$/'));
+		$phone->setErrorMessage('Phone number must be in this format: +nnnn-nnn-nnn-nnnn');
+		$phone->getFilterChain()
+			  ->attachByName('StripTags')
+			  ->attachByName('StringTrim');
+  
+		$email = new Input('contact_email');
+		$email->setAllowEmpty(TRUE);
+		$email->getValidatorChain()
+			  ->attachByName('EmailAddress');
+		$email->getFilterChain()
+			  ->attachByName('StripTags')
+			  ->attachByName('StringTrim');
+		
+		$description = new Input('description');
+		$description->setAllowEmpty(TRUE);
+		$description->getValidatorChain()
+					->attachByName('StringLength', array('min' => 1, 'max' => 4096));
+		$description->getFilterChain()
+				    ->attachByName('StripTags')
+				    ->attachByName('StringTrim');
+  
+		$this->add($category)
+			 ->add($title)
+			 ->add($photo)
+			 ->add($price)
+			 ->add($expires)
+			 ->add($city)
+			 ->add($name)
+			 ->add($phone)
+			 ->add($email)
+			 ->add($description);
+	}
+}
+
+Module 10 (Database) Lab Solutions
+doug@unlikelysource.org : 2013-05-31 08:38:08
+
+// config/autoload/db.local.php
+<?php
+return array(
+	'db' => array(
+		'driver' => 'pdo',
+		'dsn' => 'mysql:dbname=onlinemarket;host=localhost',
+		'username' => 'zend',
+		'password' => 'password',
+		'driver_options' => array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION),
+	),
+	'service_manager' => array(
+		'factories' => array(
+			'general-adapter' => 'Zend\Db\Adapter\AdapterServiceFactory',
+		),
+	),
+);
+
+// module.config.php
+ <?php
+ return array(
+ 	'service_manager' => array(
+ 		'factories' => array(
+ 			'market-post-form' => 'Market\Factory\PostFormFactory',
+ 			'market-post-form-filter' => 'Market\Factory\PostFormFilterFactory',
+ 			'listings-table' => 'Market\Factory\ListingsTableFactory',
+ 		),
+ 	),
+ 	'controllers' => array(
+		'aliases' => array(
+    		'alt' => 'market-view-controller',
+    	),
+        'factories' => array(
+            'market-index-controller' => 'Market\Factory\IndexControllerFactory',
+            'market-view-controller' => 'Market\Factory\ViewControllerFactory',
+            'market-post-controller' => 'Market\Factory\PostControllerFactory',
+        ),
+    ),
+	// custom controller plugin
+	'controller_plugins' => array(
+	    'invokables' => array(
+			'normalizeCategory' => 'Market\Controller\Plugin\NormalizeCategory',
+	    ),
+	),
+	'router' => array(
+		'routes' => array(
+			'home' => array(
+				'type'    => 'Literal',
+				'options' => array(
+					'route'    => '/',
+					'defaults' => array(
+						'controller'    => 'market-index-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+			'market' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					'route'    => '/market[/]',
+					'defaults' => array(
+						'controller'    => 'market-index-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+			'market-view' => array(
+				'type'    => 'Literal',
+				'options' => array(
+					'route'    => '/market/view',
+					'defaults' => array(
+						'controller'    => 'market-view-controller',
+						'action'        => 'index',
+					),
+				),
+				'may_terminate' => true,
+				'child_routes' => array(
+					// This route is a sane default when developing a module;
+					// as you solidify the routes for your module, however,
+					// you may want to remove it and replace it with more
+					// specific routes.
+					'default' => array(
+						'type'    => 'Segment',
+						'options' => array(
+							'route'    => '[/:action][/:category][/]',
+							'constraints' => array(),
+							'defaults' => array(),
+						),
+					),
+				),
+			),
+			'market-item' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					// Change this to something specific to your module
+					'route'    => '/market/item[/:id]',
+					'defaults' => array(
+						'controller'    => 'market-view-controller',
+						'action'        => 'item',
+					),
+				),
+			),
+			'market-post' => array(
+				'type'    => 'Segment',
+				'options' => array(
+					// Change this to something specific to your module
+					'route'    => '/market/post[/]',
+					'defaults' => array(
+						'controller'    => 'market-post-controller',
+						'action'        => 'index',
+					),
+				),
+			),
+		),
+	),
+ 	'view_helpers' => array(
+ 		'invokables' => array(
+ 			'leftLinks' => 'Market\Helper\LeftLinks',
+ 			'categoryList' => 'Market\Helper\CategoryList',
+ 		),
+ 	),
+    'view_manager' => array(
+        'template_map' => array(
+            'market/index/index' => __DIR__ . '/../view/market/index/index2.phtml',
+        ),
+        'template_path_stack' => array(
+            'Market' => __DIR__ . '/../view',
+        ),
+    ),
+);
+
+// ListingsTable.php
+<?php
+namespace Market\Model;
+
+use Zend\Db\TableGateway\TableGateway;
+use Zend\Db\Sql;
+use Market\Form\PostForm;
+
+class ListingsTable extends TableGateway
+{
+	public static $tableName = 'listings';
+	public function getListingsByCategory($category)
+	{
+		// NOTE: the "select()" method provides proper database quoting
+		return $this->select(array('category' => $category));
+	}
+	public function getListingById($id)
+	{
+		return $this->select(array('listings_id' => $id))->current();
+	}
+	public function getMostRecentListing()
+	{
+		$adapter = $this->getAdapter();
+		$platform = $adapter->getPlatform();
+		$main = new Sql\Select();
+		$expr = new Sql\Expression(sprintf('MAX(%s)', $platform->quoteIdentifier('listings_id')));
+		$sub = new Sql\Select();
+		$sub->from(self::$tableName)->columns(array($expr));
+		$where = new Sql\Where();
+		$where->in('listings_id', $sub);
+		$main->from(self::$tableName)->where($where);
+		//echo $main->getSqlString($platform);
+		return $this->selectWith($main)->current();
+	}
+	public function addPost($data)
+	{
+		// separate city and country
+		$cityCountry = explode(',', $data['city']);
+		$data['city'] = $cityCountry[0];
+		$data['country'] = $cityCountry[1];
+		$data['date_expires'] = time() + (60 * 60 * $data['expires']);
+		// unset fields which are not in table structure
+		unset($data['cityCode']);
+		unset($data['captcha']);
+		unset($data['expires']);
+		unset($data['submit']);
+		return $this->insert($data);
+	}
+}
+
+// ListingsTableFactory.php
+<?php
+namespace Market\Factory;
+use Zend\ServiceManager\FactoryInterface;
+use Zend\ServiceManager\ServiceLocatorInterface;
+use Market\Model\ListingsTable;
+class ListingsTableFactory implements FactoryInterface
+{	
+	public function createService(ServiceLocatorInterface $serviceManager)
+	{
+		// NOTE: example of constructor injection
+		$table = new ListingsTable(ListingsTable::$tableName, 
+								   $serviceManager->get('general-adapter'));
+		return $table;
+	}
+}
+
+// IndexControllerFactory.php
+// ViewControllerFactory.php is the same
+<?php
+namespace Market\Factory;
+use Zend\ServiceManager\FactoryInterface;
+use Zend\ServiceManager\ServiceLocatorInterface;
+use Market\Controller\IndexController;
+class IndexControllerFactory implements FactoryInterface
+{
+	public function createService(ServiceLocatorInterface $controllerManager)
+	{
+		$serviceManager = $controllerManager->getServiceLocator();
+		$controller = new IndexController();
+		// NOTE: using public property injection rather than setter injection!
+		$controller->listingsTable = $serviceManager->get('listings-table');
+		return $controller;
+	}
+}
+
+// PostControllerFactory.php
+<?php
+namespace Market\Factory;
+use Zend\ServiceManager\FactoryInterface;
+use Zend\ServiceManager\ServiceLocatorInterface;
+use Market\Controller\PostController;
+class PostControllerFactory implements FactoryInterface
+{
+	public function createService(ServiceLocatorInterface $controllerManager)
+	{
+		$serviceManager = $controllerManager->getServiceLocator();
+		$controller = new PostController();
+		// NOTE: using public property injection rather than setter injection!
+		$controller->categories = $serviceManager->get('categories');
+		$controller->listingsTable = $serviceManager->get('listings-table');
+		// NOTE: this is an example of setter injection
+		$controller->setForm($serviceManager->get('market-post-form'));
+		return $controller;
+	}
+}
+
+// IndexController.php
+<?php
+namespace Market\Controller;
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+class IndexController extends AbstractActionController
+{
+	public function indexAction()
+    {
+    	if ($this->flashmessenger()->hasMessages()) {
+    		$messages = $this->flashMessenger()->getMessages();
+    		$this->flashMessenger()->clearMessages();
+    	} else {
+    		$messages = array();
+    	}
+    	$viewModel = new ViewModel(array('messages' => $messages, 
+    									 'item' => $this->listingsTable->getMostRecentListing()));
+    	$viewModel->setTemplate('market/index/index2.phtml');
+        return $viewModel;
+    }
+    
+}
+
+// ViewController.php
+<?php
+namespace Market\Controller;
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+class ViewController extends AbstractActionController
+{
+	public $listingsTable;
+    public function indexAction()
+    {
+		$category = $this->params()->fromRoute('category');
+		$listings = $this->listingsTable->getListingsByCategory($category);
+    	$viewModel = new ViewModel(array('category' => $category, 'listings' => $listings));
+    	$viewModel->setTemplate('market/view/index.phtml');
+        return $viewModel;
+    }
+	public function itemAction()
+	{
+		$id = (int) $this->params()->fromRoute('id');
+		if ($id) {
+			$item = $this->listingsTable->getListingById($id);
+			$viewModel = new ViewModel(array('item' => $item));
+			$viewModel->setTemplate('market/view/item.phtml');
+			return $viewModel;
+		} else {
+			$this->flashMessenger()->addMessage('Item Not Found');
+			return $this->redirect()->toRoute('market-view');
+		}
+	}
+}
+
+// PostController.php
+<?php
+namespace Market\Controller;
+use Zend\Mvc\Controller\AbstractActionController;
+use Zend\View\Model\ViewModel;
+class PostController extends AbstractActionController
+{
+	public $categories;
+	public $postForm;
+	public $listingsTable;
+	
+	public function indexAction()
+	{
+		$this->postForm->setAttributes(array('method' => 'POST', 
+											 'action' => $this->url()->fromRoute('market-post')));
+		$data = $this->params()->fromPost();
+		$this->postForm->setData($data);
+		$viewModel = new ViewModel(array('categories' => $this->categories,
+										 'postForm' => $this->postForm,
+										 'data' => $data,
+		));
+		$viewModel->setTemplate('market/post/index.phtml');
+		if ($this->getRequest()->isPost()) {
+			if ($this->postForm->isValid()) {
+				// insert data into the database
+				if ($this->listingsTable->addPost($this->postForm->getData())) {
+					$this->flashmessenger()->addMessage('Thanks for your posting!');
+				} else {
+					$this->flashmessenger()->addMessage('Sorry! Unable to add your posting!');
+				}
+				return $this->redirect()->toRoute('home');
+			} else {
+				$oldViewModel = clone $viewModel;
+				$viewModel = new ViewModel();
+				$viewModel->setTemplate('market/post/invalid.phtml');
+				$viewModel->addChild($oldViewModel, 'main');
+			}
+		}
+		return $viewModel;
+	}
+	public function setForm($form)
+	{
+		$this->postForm = $form;
+	}
+}
+
+// CategoryList.php -- view helper
+<?php
+namespace Market\Helper;
+use Zend\View\Helper\AbstractHelper;
+use Zend\Db\ResultSet\ResultSet;
+use Zend\View\Helper\Cycle;
+class CategoryList extends AbstractHelper
+{
+	public function render($values)
+	{
+		$cycle = new Cycle();
+		$output = '';
+		if ($values instanceof ResultSet) {
+			$output .= "<table style='width: 500px;'>\n";
+			$output .= '<tr>'
+					 . '<td style="width: 200px;">Item</td>'
+					 . '<td style="width: 100px;text-align: right;">Price</td>'
+					 . '<td style="width: 50px;">&nbsp;</td>'
+					 . '<td style="width: 100px;">Posted</td>'
+					 . "</tr>\n";
+			while ($item = $values->current()) {
+				$output .= '<tr style="background-color:' 
+						. $cycle(array('#F8F8F8', '#F0F0F0', '#FFFFFF'))->next() 
+						 . ';">' . PHP_EOL;
+				$output .= '<td style="width: 200px;">'
+						 . '<a href="/market/item/' 
+						 . (int) $item->listings_id
+						 . '"/>'
+						 . htmlspecialchars($item['title'])
+						 . '</a></td>';
+				$output .= '<td style="width: 100px;text-align: right;">'
+						 . (float) $item['price']
+						 . '</td>';
+				$output .= '<td style="width: 50px;">&nbsp;</td>';
+				$output .= '<td style="width: 150px;">'
+						 . htmlspecialchars($item['date_created'])
+						 . '</td>';
+				$output .= "</tr>\n";
+				$values->next();
+			}
+			$output .= "</table>\n";
+		} else {
+			$output = $values;
+		}
+		return $output;
+	}
+	public function __invoke($values)
+	{
+		return $this->render($values);
+	}
+}
+
+// view/market/details.phtml -- view partial
+<?php if ($item) : ?>
+	<h3><?php echo $this->escapehtml(ucwords($item->title)); ?></h3>
+	<div style="width: 200px; float: left;">
+	<?php if ($item->photo_filename) : ?>
+	<img src="<?php echo $item->photo_filename; ?>" />
+	<?php else : ?>
+	No Image
+	<?php endif; ?>
+	</div>
+	<div style="width: 400px; float: left; margin: 20px;">
+	<br /><b>Contact Details:</b>
+	<br /><?php echo $this->escapeHtml($item->contact_name); ?>
+	<br /><?php echo $this->escapeHtml($item->contact_email); ?>
+	<br /><?php echo $this->escapeHtml($item->contact_phone); ?>
+	<br /><b>Posting Details:</b>
+	<br /><?php echo $this->escapeHtml($item->date_created); ?>
+	<br /><i>Price:</i> £<?php echo $this->escapeHtml($item->price); ?>
+	<br /><i>City:</i> <?php echo $this->escapeHtml($item->city); ?>,<?php echo $this->escapeHtml($item->country); ?>
+	<br /><i>Description:</i><p><?php echo $this->escapeHtml($item->description); ?></p>
+	</div>
+<?php else : ?>
+No Recent Posting!
+<?php endif; ?>
+
+// view/market/index/index2.phtml
+<h3>Market Main Page</h3>
+<?php if ($this->messages) : ?>
+<?php echo $this->htmlList($this->messages); ?>
+<?php endif; ?>
+<?php echo $this->partial('market/details', array('item' => $this->item)); ?>
+
+// view/market/view/index.phtml
+<?php $category = ($this->category) ? $this->category : 'Unknown'; ?>
+<h3><?php echo $this->escapehtml(ucfirst($this->category)); ?></h3>
+<?php echo $this->categoryList($this->listings); ?>
+
+// view/market/view/item.phtml
+<?php echo $this->partial('market/details', array('item' => $this->item)); ?>
+
+
+UPDATE NOTES:
+
+Classes Not Covered:
+Zend\InputFilter\*
+#1: what do these interfaces do?
+#2: ArrayInput, BaseInputFilter, CollectionInputFilter, FileInput, 
+
+Zend\EventManager\GlobalEventManager
+-- contains static methods
+-- can be used in place of shared
+
+LAB GUIDE UPDATES:
+
+1. vhost conf files now end in *.conf
+2. tt font for captcha:: /usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf
